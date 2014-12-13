@@ -147,7 +147,7 @@ static int english_id= -1;           // english move glcompile-id
 static int mleft_id= -1;             // left menu bar glcompile-id (training)
 static int mleftnormal_id= -1;       // left menu bar glcompile-id (normal)
 static int mright_id= -1;            // right menu bar glcompile-id
-static int mupper_id= -1;            // upper menu bar glcompile-id
+__unused static int mupper_id= -1;            // upper menu bar glcompile-id
 static int mscreen_id= -1;           // screenshot button glcompile-id
 static int pscreen_id[2]= {-1,-1};   // pause button glcompile-id
 static int breakscreen_id= -1;       // break button glcompile-id
@@ -2316,7 +2316,7 @@ void check_cue(void) {
 
    int cue_ball = CUE_BALL_IND; // index cue-ball
    int i; //loop
-   VMvect dir,cue_start,cue_start_bande,cue_start_ball,nx,ny,pos,hitpoint;
+   __unused VMvect dir,cue_start,cue_start_bande,cue_start_ball,nx,ny,pos,hitpoint;
    VMfloat x,y;
 
    //if(queue_view) { //change nothing, if not in cue view (don't activate this. Only for debugging)
@@ -4088,7 +4088,7 @@ void Display_tournament_tree( struct TournamentState_ * ts )
 /***********************************************************************
  *                   The idle & displaying function                    *
  ***********************************************************************/
-
+#pragma mark - DisplayFunc, main game loop
 void DisplayFunc( void )
 {
 
@@ -4913,7 +4913,7 @@ void DisplayFunc( void )
                    right = vec_xyz(0.003*(1.0-k*0.23)/0.4*(0.5-zact),0,0);
                    up    = vec_xyz(0,0.003*(1.0-k*0.23)/0.4*(0.5-zact),0);
                }
-               GLfloat VertexData1[11];
+               GLfloat VertexData1[12];
                VertexData1[0] = actpos.x+up.x-right.x;
                VertexData1[1] = actpos.y+up.y-right.y;
                VertexData1[2] = actpos.z+up.z-right.z;
@@ -4964,7 +4964,7 @@ void DisplayFunc( void )
            p=vec_add(p,balls.ball[cue_ball].r);
            glEnable(GL_LINE_STIPPLE);
            glLineStipple(1, 0x3333);
-       GLfloat VertexData2[23];
+       GLfloat VertexData2[24];
            p1=vec_add(p,vec_scale(bx,-0.01));
            p2=vec_add(p,vec_scale(bx,+0.01));
            VertexData2[0] = p.x; VertexData2[1] = p.y; VertexData2[2] = p.z;
