@@ -223,7 +223,7 @@ ElemArray * create_ball_icosa_array( VMfloat r, int ddepth, int id )
 #define Z .850650808352039932
 
     ElemArray * array;
-    int i,j,pnr,fnr,actind;
+    int i=0,j=0,pnr=0,fnr=0,actind=0;
     VMfloat volume, scale_ratio;
     VMvect v1,v2,v3;
 

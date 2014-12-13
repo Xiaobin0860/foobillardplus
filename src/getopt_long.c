@@ -37,7 +37,7 @@ int getopt_long_new(int argc,char * const argv[],
 {
   //parameter longindex not used. Only here for compatibility reasons to the gnu getopt_long
   int i;   /* for looping through options */
-  int l;   /* for length */
+  size_t l;   /* for length */
 
   /* first check if there realy is a -- option */
   if ( (optind>0)&&(optind<argc) &&

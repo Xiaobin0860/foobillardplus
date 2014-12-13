@@ -915,8 +915,8 @@ void enter_data_dir() {
     int success = 1;
 
 #ifdef POSIX
-    char proc_exe[20];
-    char *slash_pos;
+    __unused char proc_exe[20];
+    __unused char *slash_pos;
 #endif
 
     do {

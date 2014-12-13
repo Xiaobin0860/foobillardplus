@@ -1483,7 +1483,7 @@ void init_menu(void)
     carambol_menu = menu_new( menu_cb );
     //Points for winning options
     sprintf(str,localeText[213],options_maxp_carambol);
-    menu_add_textfield( carambol_menu, str, MENU_ID_MAXP_CARAMBOL, utf8count(localeText[213])-2,KEY_TYPE_NUM,1,100,3,localeText[358]);
+    menu_add_textfield( carambol_menu, str, MENU_ID_MAXP_CARAMBOL, (int)utf8count(localeText[213])-2,KEY_TYPE_NUM,1,100,3,localeText[358]);
     //One Player
     menu_add_entry(carambol_menu, localeText[212], MENU_ID_GAMETYPE_CARAMBOL,localeText[354]);
     //Tournament
@@ -1698,7 +1698,7 @@ void init_menu(void)
 #ifndef USE_WIN
     //Default Browser for Manual (only Linux)
     sprintf(str,localeText[19],options_browser);
-    menu_add_textfield( view_menu, str, MENU_ID_BROWSER, utf8count(localeText[19])-2,KEY_TYPE_MIXED,1,0,15,localeText[380]);
+    menu_add_textfield( view_menu, str, MENU_ID_BROWSER, (int)utf8count(localeText[19])-2,KEY_TYPE_MIXED,1,0,15,localeText[380]);
 #endif
     //< back
     menu_add_exit (view_menu, localeText[63],localeText[266]);
@@ -1830,7 +1830,7 @@ void init_menu(void)
     player1_menu = menu_new( menu_cb );
     //P1 Name:
     sprintf(str,localeText[122],player[0].name);
-    menu_add_textfield( player1_menu, str, MENU_ID_PLAYER1_NAME, utf8count(localeText[122])-2,KEY_TYPE_MIXED,1,0,15,localeText[344]);
+    menu_add_textfield( player1_menu, str, MENU_ID_PLAYER1_NAME, (int)utf8count(localeText[122])-2,KEY_TYPE_MIXED,1,0,15,localeText[344]);
     //P1 Type
     menu_add_submenu (player1_menu, localeText[146],  player1_type_menu, 1, localeText[56-player[0].is_AI],localeText[396]);
     //P1 Skill
@@ -1860,7 +1860,7 @@ void init_menu(void)
     player2_menu = menu_new( menu_cb );
     //P2 Name:
     sprintf(str,localeText[123],player[1].name);
-    menu_add_textfield( player2_menu, str,  MENU_ID_PLAYER2_NAME, utf8count(localeText[123])-2,KEY_TYPE_MIXED,1,0,15,localeText[345]);
+    menu_add_textfield( player2_menu, str,  MENU_ID_PLAYER2_NAME, (int)utf8count(localeText[123])-2,KEY_TYPE_MIXED,1,0,15,localeText[345]);
     //"P2 Type
     menu_add_submenu (player2_menu, localeText[117],  player2_type_menu, 1, localeText[56-player[1].is_AI],localeText[396]);
     //P2 Skill

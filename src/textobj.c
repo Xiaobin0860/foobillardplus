@@ -152,7 +152,7 @@ void textObj_setText( textObj * obj, char * str )
 void textObj_delete_last( textObj * obj )
 {
     char str[256];
-    int slen;
+    size_t slen;
     strcpy(str,obj->str);
     slen = strlen(str);
     str[slen-1]=0;
@@ -164,7 +164,7 @@ void textObj_delete_last( textObj * obj )
 void textObj_append_char( textObj * obj, int c )
 {
     char str[256];
-    int slen;
+    size_t slen;
     strcpy(str,obj->str);
     slen = strlen(str);
     str[slen+1]=0;

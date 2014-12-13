@@ -65,7 +65,8 @@ int load_png(char * file_name, int * w, int * h, int * depth, char ** data)
     png_uint_32 width, height;
     int bit_depth, color_type, interlace_type,
         compression_type, filter_type;
-    int rowbytes, channels;
+    size_t rowbytes = 0;
+    int channels = 0;
     unsigned int i;
     char * buff;
     char ** row_pointers;

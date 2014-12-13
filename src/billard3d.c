@@ -168,13 +168,13 @@ static int old_birdview_ai=0;        // if options_ai_birdview is on this holds 
 
 static int leftmenu = 0;             // left Slider menu is closed on startup
 static int rightmenu = 0;            // right slider menu is closed on startup
-static int uppermenu = 0;            // upper slider menu is closed on startup
+__unused static int uppermenu = 0;            // upper slider menu is closed on startup
 static int leftcount = 0;            // the left counter for left menu for sliding
 static int rightcount = 0;           // the right counter for left menu for sliding
-static int uppercount = 0;           // the upper counter for upper menu for sliding
+__unused static int uppercount = 0;           // the upper counter for upper menu for sliding
 static VMfloat next_leftmenu = 0.0;  // menu speed
 static VMfloat next_rightmenu = 0.0; // menu speed
-static VMfloat next_uppermenu = 0.0; // menu speed
+__unused static VMfloat next_uppermenu = 0.0; // menu speed
 
 #define MENUCOUNT 177                // how much to count for sliding in/out left/right menu
 
