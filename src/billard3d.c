@@ -4091,1750 +4091,1751 @@ void Display_tournament_tree( struct TournamentState_ * ts )
 #pragma mark - DisplayFunc, main game loop
 void DisplayFunc( void )
 {
-
+    
 #define NEXT_FLAME_COUNTER 0.5
-
-  char str[256];                    // for string operations and network countdown
-  int i,j,k,m;                      // some loop variables
-  int minballnr;                    // next ball for 9ball
-  static int balls_were_moving=0;   // balls were moved just one step before
-  int t_act,in_game = 0;
-  static int dt;
-  static int t_prev=-1;
-  static int frametime_rest=0;
-  static int count=0;
-  static VMfloat dt_s_rest=0.0;
-  static int flame_frame = 0;       // the fire flame-frame to show
-  static VMfloat next_flame = NEXT_FLAME_COUNTER;
-  VMfloat fact;
+    
+    char str[256];                    // for string operations and network countdown
+    int i,j,k,m;                      // some loop variables
+    int minballnr;                    // next ball for 9ball
+    static int balls_were_moving=0;   // balls were moved just one step before
+    int t_act,in_game = 0;
+    static int dt;
+    static int t_prev=-1;
+    static int frametime_rest=0;
+    static int count=0;
+    static VMfloat dt_s_rest=0.0;
+    static int flame_frame = 0;       // the fire flame-frame to show
+    static VMfloat next_flame = NEXT_FLAME_COUNTER;
+    VMfloat fact;
 #ifdef USE_SOUND                    // some stuff for ball-sounds
-  VMfloat bhitstrength=0.0;
-  VMfloat whitstrength=0.0;
-  VMfloat toffs=0.0;
-  int index;
+    VMfloat bhitstrength=0.0;
+    VMfloat whitstrength=0.0;
+    VMfloat toffs=0.0;
+    int index;
 #endif
-  int old_cueball_ind;              // cueball index just one move before
-  int col;                          // actual color for 9ball
-  int cue_ball = CUE_BALL_IND;      // actual cueball index
-
-  VMfloat th,ph,cam_dist0;
-  VMfloat znear=0.03;
-  VMfloat zfar=15.0;
-  VMfloat eye_offs, zeye;        //for stereo view
-  VMfloat eye_offs0, eye_offs1;  //for stereo view
-
-  GLfloat light0_position[] = { 0.0, 0.7, 0.7, 1.0 };
-  GLfloat light0_diff[]     = { 0.6, 0.6, 0.6, 1.0 };
-  GLfloat light0_amb[]      = { 0.35, 0.35, 0.35, 1.0 };
-  GLfloat light1_position[] = { 0.0, -0.7, 0.7, 1.0 };
-  GLfloat light1_diff[]     = { 0.6, 0.6, 0.6, 1.0 };
-  GLfloat light1_amb[]      = { 0.35, 0.35, 0.35, 1.0 };
-
-  GLfloat cam_FOV_tan = tan(cam_FOV*M_PI/360.0); //for quicker computing of the cam_FOV inside this function
-  myvec cam_pos;
-  VMmatrix4 mv_matr;
-  VMmatrix4 prj_matr;
-  VMvect dpos,dpos1,actpos,centpos,right,up; // for the Lensflare
+    int old_cueball_ind;              // cueball index just one move before
+    int col;                          // actual color for 9ball
+    int cue_ball = CUE_BALL_IND;      // actual cueball index
+    
+    VMfloat th,ph,cam_dist0;
+    VMfloat znear=0.03;
+    VMfloat zfar=15.0;
+    VMfloat eye_offs, zeye;        //for stereo view
+    VMfloat eye_offs0, eye_offs1;  //for stereo view
+    
+    GLfloat light0_position[] = { 0.0, 0.7, 0.7, 1.0 };
+    GLfloat light0_diff[]     = { 0.6, 0.6, 0.6, 1.0 };
+    GLfloat light0_amb[]      = { 0.35, 0.35, 0.35, 1.0 };
+    GLfloat light1_position[] = { 0.0, -0.7, 0.7, 1.0 };
+    GLfloat light1_diff[]     = { 0.6, 0.6, 0.6, 1.0 };
+    GLfloat light1_amb[]      = { 0.35, 0.35, 0.35, 1.0 };
+    
+    GLfloat cam_FOV_tan = tan(cam_FOV*M_PI/360.0); //for quicker computing of the cam_FOV inside this function
+    myvec cam_pos;
+    VMmatrix4 mv_matr;
+    VMmatrix4 prj_matr;
+    VMvect dpos,dpos1,actpos,centpos,right,up; // for the Lensflare
 #ifndef WETAB
-  VMvect bx, by, bz, p, p1, p2;  //for the Helpline Cross on the ball
+    VMvect bx, by, bz, p, p1, p2;  //for the Helpline Cross on the ball
 #endif
-  static GLfloat real_dist=0.0;
-  static GLfloat rg_eye_dist=0.05;
-  static int introxanimate = 0; //animate the intro (don't change this!!)
-  static int introyanimate = 0; //dto.
-  static VMfloat next_intro = 0.0; // speed variable for intro graphic
-  static GLfloat introblendxanimate = 0.0; //dto.
-  static GLfloat introblendyanimate = 0.0; //dto.
-
+    static GLfloat real_dist=0.0;
+    static GLfloat rg_eye_dist=0.05;
+    static int introxanimate = 0; //animate the intro (don't change this!!)
+    static int introyanimate = 0; //dto.
+    static VMfloat next_intro = 0.0; // speed variable for intro graphic
+    static GLfloat introblendxanimate = 0.0; //dto.
+    static GLfloat introblendyanimate = 0.0; //dto.
+    
 #ifdef NETWORKING
-   // Network Game
-   network_game();
-   //fprintf(stderr,"networking\n");
+    // Network Game
+    network_game();
+    //fprintf(stderr,"networking\n");
 #endif
-
-  count++;
-  t_act=SDL_GetTicks();
-  if (t_prev==-1) t_prev=t_act;
-  dt += t_act-t_prev;
-  dt_s_rest += (t_act-t_prev)/1000.0;
-  t_prev = t_act;
-  if(count==1){
-    count=0;
-    frametime_ms=dt;
-    if( frametime_ms<1 ) frametime_ms=1;
-    if( frametime_ms>frametime_ms_max ) frametime_ms=frametime_ms_max;
-    dt=0;
-  }
-
- //    fprintf(stderr,"dt=%d\n",dt);
-  fact=MATH_POW(0.85,(VMfloat)frametime_ms/50.0);
-  Xrot_offs *= fact;
-  Zrot_offs *= fact;
-  fact=MATH_POW(0.94,(VMfloat)frametime_ms/50.0);
-  cam_dist = (cam_dist*fact)+(cam_dist_aim+vec_abs(balls.ball[CUE_BALL_IND].v)*0.4)*(1.0-fact);
-
-  free_view_pos = vec_add( vec_scale( free_view_pos, fact ), vec_scale( free_view_pos_aim, 1.0-fact ) );
-
-  while(dt_s_rest>0.0) {
-         //fprintf(stderr,"dtsrest\n");
-         /* assure constant time flow */
- #ifdef TIME_INTERPOLATE
-         copy_balls(&balls,&g_lastballs);
- #endif
-
- #define TIMESTEP 0.01
-         dt_s_rest-=TIMESTEP/0.75/g_motion_ratio;
-         // fprintf(stderr,"g_motion_ratio=%f\n",g_motion_ratio);
-         // fprintf(stderr,"dt_s_rest=%f\n",dt_s_rest);
-         balls_moving = proceed_dt( &balls, &walls, TIMESTEP, player );
-         if(balls_moving) {
-          balls_were_moving = 1;
-         }
- #ifdef USE_SOUND
-         index=0;
-         do{
-           BM_get_balls_hit_strength_last_index( index++ ,&bhitstrength, &toffs );
-           bhitstrength = 1.75 * (0.3 * bhitstrength / CUEBALL_MAXSPEED + 0.7 * bhitstrength*bhitstrength / CUEBALL_MAXSPEED / CUEBALL_MAXSPEED);
-           if(bhitstrength!=0.0){
-             if( toffs>TIMESTEP || toffs<0.0 ){
-                error_print("Error: toffs>TIMESTEP || toffs<0.0",NULL);
-                sys_exit(1);
-             }
-             if(options_gamemode==options_gamemode_tournament && player[0].is_AI && player[1].is_AI) {
-               //nosound
-             } else {
-             	 //fprintf(stderr,"%i\n",(int)(options_snd_volume*((bhitstrength>1)?1:bhitstrength*3)));
-             	 PLAY_NOISE(ball_sound,(int)(options_snd_volume*((bhitstrength>1)?1:bhitstrength*3)));
-             }
-           }
-         } while(bhitstrength!=0.0);
-         index=0;
-         do{
-           BM_get_walls_hit_strength_last_index( index++ ,&whitstrength, &toffs );
-           whitstrength = 0.4 * (0.3 * whitstrength / CUEBALL_MAXSPEED + 0.7 * whitstrength*whitstrength / CUEBALL_MAXSPEED / CUEBALL_MAXSPEED);
-           if(whitstrength!=0.0){
-             if(options_gamemode==options_gamemode_tournament && player[0].is_AI && player[1].is_AI) {
-              //nosound
-             } else {
-             	//fprintf(stderr,"%i\n",(int)(options_snd_volume*((whitstrength>1)?1:whitstrength)));
-             	PLAY_NOISE(wall_sound,(int)(options_snd_volume*((whitstrength>1)?1:whitstrength)));
-             }
-           }
-         } while(whitstrength!=0.0);
-         PlayNextSong(); //check for new Background music to play
- #endif
-     if (!balls_moving) break;
-     }
-     // Check for button pressed on the Hud
-     if(hudbuttonpressed) {
-       if ( button_anim > 0.0 ){
-          button_anim-=(VMfloat)frametime_ms/120.0;
-          if (button_anim<0.0) button_anim=0.0;
-       } //anim end
-       //check for up/down/back/next/shoot button click
-       if(button_anim < 0.01 && !(options_gamemode==options_gamemode_tournament && tournament_state.wait_for_next_match) && !(player[act_player].is_net || player[act_player].is_AI) && !balls_moving) {
-          button_anim = 0.3;
-          switch(hudbuttonpressed) {
-            case 1:
-              zoom_in_out(-20); // zoom-
-              break;
-            case 2:
-              zoom_in_out(+20); // zoom+
-              break;
-            case 3:
-              queue_strength = strength01( queue_strength-0.01 ); // strength down
-              break;
-            case 4:
-              queue_strength = strength01( queue_strength+0.01 ); // strength up
-              break;
-            case 5:
-              Key(KSYM_DOWN,0); // cursor down
-              break;
-            case 6:
-              Key(KSYM_UP,0); // cursor up
-              break;
-            case 7:
-              Key(KSYM_RIGHT,0); // cursor right
-              break;
-            case 8:
-              Key(KSYM_LEFT,0); // cursor left
-              break;
-          }
-       }
-     }
-     //Check for button pressed on hud end
-     if (dt_s_rest>0.0) {
-      dt_s_rest=0.0; /* to move on if last move was completely in last simulation step */
-     }
- #ifdef TIME_INTERPOLATE
-     if((frametime_ms+frametime_rest)/10>0)
-         g_frametime_laststep = (frametime_ms+frametime_rest)/10*10;
-     g_frametime_fromlast = frametime_rest;
- #endif
-     frametime_rest = (frametime_ms+frametime_rest) % 10;
-
-     /*************************************************************
-      * the following "if" is only proceed if no balls are moving *
-      *************************************************************/
-
-     if(!balls_moving && balls_were_moving ){
-         /* allways a shot to be due when balls just stopped moving */
-         g_shot_due=1;
-         balls_were_moving=0;
-         if(options_gamemode!=options_gamemode_training){
-             old_actplayer = act_player; // save the state of the actual player for network game and history function
-             //fprintf(stderr,"evaluate_last_move is called\n");
-             evaluate_last_move( player, &act_player, &balls, &queue_view);
-             Xque = -87.0;  // reset the cue-pos
-             if(old_actplayer != act_player) {
-             	  roundcounter++;
+    
+    count++;
+    t_act=SDL_GetTicks();
+    if (t_prev==-1) t_prev=t_act;
+    dt += t_act-t_prev;
+    dt_s_rest += (t_act-t_prev)/1000.0;
+    t_prev = t_act;
+    if(count==1){
+        count=0;
+        frametime_ms=dt;
+        if( frametime_ms<1 ) frametime_ms=1;
+        if( frametime_ms>frametime_ms_max ) frametime_ms=frametime_ms_max;
+        dt=0;
+    }
+    
+    //    fprintf(stderr,"dt=%d\n",dt);
+    fact=MATH_POW(0.85,(VMfloat)frametime_ms/50.0);
+    Xrot_offs *= fact;
+    Zrot_offs *= fact;
+    fact=MATH_POW(0.94,(VMfloat)frametime_ms/50.0);
+    cam_dist = (cam_dist*fact)+(cam_dist_aim+vec_abs(balls.ball[CUE_BALL_IND].v)*0.4)*(1.0-fact);
+    
+    free_view_pos = vec_add( vec_scale( free_view_pos, fact ), vec_scale( free_view_pos_aim, 1.0-fact ) );
+    
+    while(dt_s_rest>0.0) {
+        //fprintf(stderr,"dtsrest\n");
+        /* assure constant time flow */
+#ifdef TIME_INTERPOLATE
+        copy_balls(&balls,&g_lastballs);
+#endif
+        
+#define TIMESTEP 0.01
+        dt_s_rest-=TIMESTEP/0.75/g_motion_ratio;
+        // fprintf(stderr,"g_motion_ratio=%f\n",g_motion_ratio);
+        // fprintf(stderr,"dt_s_rest=%f\n",dt_s_rest);
+        balls_moving = proceed_dt( &balls, &walls, TIMESTEP, player );
+        if(balls_moving) {
+            balls_were_moving = 1;
+        }
+#ifdef USE_SOUND
+        index=0;
+        do{
+            BM_get_balls_hit_strength_last_index( index++ ,&bhitstrength, &toffs );
+            bhitstrength = 1.75 * (0.3 * bhitstrength / CUEBALL_MAXSPEED + 0.7 * bhitstrength*bhitstrength / CUEBALL_MAXSPEED / CUEBALL_MAXSPEED);
+            if(bhitstrength!=0.0){
+                if( toffs>TIMESTEP || toffs<0.0 ){
+                    error_print("Error: toffs>TIMESTEP || toffs<0.0",NULL);
+                    sys_exit(1);
+                }
+                if(options_gamemode==options_gamemode_tournament && player[0].is_AI && player[1].is_AI) {
+                    //nosound
+                } else {
+                    //fprintf(stderr,"%i\n",(int)(options_snd_volume*((bhitstrength>1)?1:bhitstrength*3)));
+                    PLAY_NOISE(ball_sound,(int)(options_snd_volume*((bhitstrength>1)?1:bhitstrength*3)));
+                }
+            }
+        } while(bhitstrength!=0.0);
+        index=0;
+        do{
+            BM_get_walls_hit_strength_last_index( index++ ,&whitstrength, &toffs );
+            whitstrength = 0.4 * (0.3 * whitstrength / CUEBALL_MAXSPEED + 0.7 * whitstrength*whitstrength / CUEBALL_MAXSPEED / CUEBALL_MAXSPEED);
+            if(whitstrength!=0.0){
+                if(options_gamemode==options_gamemode_tournament && player[0].is_AI && player[1].is_AI) {
+                    //nosound
+                } else {
+                    //fprintf(stderr,"%i\n",(int)(options_snd_volume*((whitstrength>1)?1:whitstrength)));
+                    PLAY_NOISE(wall_sound,(int)(options_snd_volume*((whitstrength>1)?1:whitstrength)));
+                }
+            }
+        } while(whitstrength!=0.0);
+        PlayNextSong(); //check for new Background music to play
+#endif
+        if (!balls_moving) break;
+    }
+    // Check for button pressed on the Hud
+    if(hudbuttonpressed) {
+        if ( button_anim > 0.0 ){
+            button_anim-=(VMfloat)frametime_ms/120.0;
+            if (button_anim<0.0) button_anim=0.0;
+        } //anim end
+        //check for up/down/back/next/shoot button click
+        if(button_anim < 0.01 && !(options_gamemode==options_gamemode_tournament && tournament_state.wait_for_next_match) && !(player[act_player].is_net || player[act_player].is_AI) && !balls_moving) {
+            button_anim = 0.3;
+            switch(hudbuttonpressed) {
+                case 1:
+                    zoom_in_out(-20); // zoom-
+                    break;
+                case 2:
+                    zoom_in_out(+20); // zoom+
+                    break;
+                case 3:
+                    queue_strength = strength01( queue_strength-0.01 ); // strength down
+                    break;
+                case 4:
+                    queue_strength = strength01( queue_strength+0.01 ); // strength up
+                    break;
+                case 5:
+                    Key(KSYM_DOWN,0); // cursor down
+                    break;
+                case 6:
+                    Key(KSYM_UP,0); // cursor up
+                    break;
+                case 7:
+                    Key(KSYM_RIGHT,0); // cursor right
+                    break;
+                case 8:
+                    Key(KSYM_LEFT,0); // cursor left
+                    break;
+            }
+        }
+    }
+    //Check for button pressed on hud end
+    if (dt_s_rest>0.0) {
+        dt_s_rest=0.0; /* to move on if last move was completely in last simulation step */
+    }
+#ifdef TIME_INTERPOLATE
+    if((frametime_ms+frametime_rest)/10>0)
+        g_frametime_laststep = (frametime_ms+frametime_rest)/10*10;
+    g_frametime_fromlast = frametime_rest;
+#endif
+    frametime_rest = (frametime_ms+frametime_rest) % 10;
+    
+    /*************************************************************
+     * the following "if" is only proceed if no balls are moving *
+     *************************************************************/
+    
+    if(!balls_moving && balls_were_moving ){
+        /* allways a shot to be due when balls just stopped moving */
+        g_shot_due=1;
+        balls_were_moving=0;
+        if(options_gamemode!=options_gamemode_training){
+            old_actplayer = act_player; // save the state of the actual player for network game and history function
+            //fprintf(stderr,"evaluate_last_move is called\n");
+            evaluate_last_move( player, &act_player, &balls, &queue_view);
+            Xque = -87.0;  // reset the cue-pos
+            if(old_actplayer != act_player) {
+                roundcounter++;
 #ifdef NETWORKING
                 // change the network player
                 if(active_net_timer!=NULL) {
-                   netorder = 1;
+                    netorder = 1;
                 }
 #endif
-             }
-             if(!tournament_state.wait_for_next_match && options_gamemode==options_gamemode_tournament && (player[0].winner || player[1].winner)) {
-               // Change of snooker no end problem. Fix from Émeric Dupont
-               //tournament_evaluate_last_match( &tournament_state );
-               //tournament_state.wait_for_next_match=1;
-               if ( player[0].winner == player[1].winner ) { // Draw
-                  restart_game_common();
-                  player[0].winner=0;
-                  player[1].winner=0;
-               }  else {
-                  tournament_evaluate_last_match( &tournament_state );
-                  tournament_state.wait_for_next_match=1;
-               }
-               // change end
-             }
-         } else {
-             player[act_player].place_cue_ball=1;
-             /* find a ball still in game */
-             old_cueball_ind=CUE_BALL_IND;
-             while(!balls.ball[CUE_BALL_IND].in_game){
-                 CUE_BALL_IND++;
-                 if(CUE_BALL_IND==balls.nr) CUE_BALL_IND=0;
-                 if(CUE_BALL_IND==old_cueball_ind) break;
-             }
-             for(i=0;i<balls.nr;i++) {
-               in_game += balls.ball[i].in_game;
-             }
-             if(!in_game) { //no balls in game, start a new training
-              restart_game();
-             }
-         }
-         all_balls_free_place(&balls); // no balls should overlap
-
-         for(i=0;i<2;i++) { // score text
-           switch(gametype){
-             case GAME_8BALL:
-                 str[0]= '0';
-                 str[1] = 0;
-                 break;
-             case GAME_9BALL:
-                 minballnr=15;
-                 for(j=0;j<balls.nr;j++){
-                   if(balls.ball[j].nr<minballnr && balls.ball[j].nr!=0 && balls.ball[j].in_game)
-                       minballnr=balls.ball[j].nr;
-                 }
-                 player[i].next_9ball = minballnr;
-                 // next: %d for the localeText
-                 sprintf( str, localeText[176], minballnr );
-                 if(minballnr == 15) {
-                   str[0]=0;
-                   }
-                 break;
-             case GAME_CARAMBOL:
-                 sprintf( str, "%+04d", player[i].score );
-                 break;
-             case GAME_SNOOKER:
-                 // col, red, yellow, green, brown, blue, pink, black for localeText
-                 snooker_color(str,abs(player[i].score),act_player,i);
-                 break;
-           }
-           textObj_setText( player[i].score_text, str );
-         }
-         // after shoot switch back to freeview if set
-         if(options_auto_freemove && !queue_view && !balls_moving && !(player[act_player].is_net || player[act_player].is_AI)) {
-               if(options_birdview_on) {
-                  birdview();
-               } else {
-                  toggle_queue_view();
-               }
             }
-
-         // bird-view for AI or net player
-         if(options_ai_birdview) {
-           if((player[act_player].is_AI || player[act_player].is_net) && !(player[0].winner || player[1].winner) && !options_birdview_on) {
-             old_birdview_ai = 1;
-             birdview();
-           } else if (!player[act_player].is_AI && !player[act_player].is_net && options_birdview_on && old_birdview_ai) {
-             old_birdview_ai = queue_view;
-             queue_view=0;
-             birdview();
-             queue_view=old_birdview_ai;
-             old_birdview_ai = 0;
-           }
-         }
-
-         // unset mouseshoot
-         if(control__active && options_control_kind) {
+            if(!tournament_state.wait_for_next_match && options_gamemode==options_gamemode_tournament && (player[0].winner || player[1].winner)) {
+                // Change of snooker no end problem. Fix from Émeric Dupont
+                //tournament_evaluate_last_match( &tournament_state );
+                //tournament_state.wait_for_next_match=1;
+                if ( player[0].winner == player[1].winner ) { // Draw
+                    restart_game_common();
+                    player[0].winner=0;
+                    player[1].winner=0;
+                }  else {
+                    tournament_evaluate_last_match( &tournament_state );
+                    tournament_state.wait_for_next_match=1;
+                }
+                // change end
+            }
+        }
+        else {
+            player[act_player].place_cue_ball=1;
+            /* find a ball still in game */
+            old_cueball_ind=CUE_BALL_IND;
+            while(!balls.ball[CUE_BALL_IND].in_game){
+                CUE_BALL_IND++;
+                if(CUE_BALL_IND==balls.nr) CUE_BALL_IND=0;
+                if(CUE_BALL_IND==old_cueball_ind) break;
+            }
+            for(i=0;i<balls.nr;i++) {
+                in_game += balls.ball[i].in_game;
+            }
+            if(!in_game) { //no balls in game, start a new training
+                restart_game();
+            }
+        }
+        all_balls_free_place(&balls); // no balls should overlap
+        
+        for(i=0;i<2;i++) { // score text
+            switch(gametype){
+                case GAME_8BALL:
+                    str[0]= '0';
+                    str[1] = 0;
+                    break;
+                case GAME_9BALL:
+                    minballnr=15;
+                    for(j=0;j<balls.nr;j++){
+                        if(balls.ball[j].nr<minballnr && balls.ball[j].nr!=0 && balls.ball[j].in_game)
+                            minballnr=balls.ball[j].nr;
+                    }
+                    player[i].next_9ball = minballnr;
+                    // next: %d for the localeText
+                    sprintf( str, localeText[176], minballnr );
+                    if(minballnr == 15) {
+                        str[0]=0;
+                    }
+                    break;
+                case GAME_CARAMBOL:
+                    sprintf( str, "%+04d", player[i].score );
+                    break;
+                case GAME_SNOOKER:
+                    // col, red, yellow, green, brown, blue, pink, black for localeText
+                    snooker_color(str,abs(player[i].score),act_player,i);
+                    break;
+            }
+            textObj_setText( player[i].score_text, str );
+        }
+        // after shoot switch back to freeview if set
+        if(options_auto_freemove && !queue_view && !balls_moving && !(player[act_player].is_net || player[act_player].is_AI)) {
+            if(options_birdview_on) {
+                birdview();
+            } else {
+                toggle_queue_view();
+            }
+        }
+        
+        // bird-view for AI or net player
+        if(options_ai_birdview) {
+            if((player[act_player].is_AI || player[act_player].is_net) && !(player[0].winner || player[1].winner) && !options_birdview_on) {
+                old_birdview_ai = 1;
+                birdview();
+            } else if (!player[act_player].is_AI && !player[act_player].is_net && options_birdview_on && old_birdview_ai) {
+                old_birdview_ai = queue_view;
+                queue_view=0;
+                birdview();
+                queue_view=old_birdview_ai;
+                old_birdview_ai = 0;
+            }
+        }
+        
+        // unset mouseshoot
+        if(control__active && options_control_kind) {
             control_unset(&control__mouse_shoot);
-         }
-     }
-
-     /******************************************
-      * only called if no balls are moving end *
-      ******************************************/
-
-     if(g_shot_due && !( options_gamemode==options_gamemode_tournament && (tournament_state.wait_for_next_match || tournament_state.tournament_over))) {
-         g_shot_due=0;
-         if( player[act_player].is_AI && !(player[act_player].winner || player[(act_player+1)%2].winner) ){
-             do_computer_move(1);
-         }
-     }
-     if ( queue_anim > 0.0 ){
-         queue_anim-=(VMfloat)frametime_ms/120.0*g_motion_ratio;
-         if (queue_anim<0.0) queue_anim=0.0;
-         queue_offs=0.16*queue_offs_func((30.0-queue_anim)/30.0);
-         if( queue_anim==0.0 ){
-             queue_shot();
-             queue_offs=0.06;
-         }
-     }
-
-   if( old_queue_view==1 && queue_view==0  ) { /* this is sloppy and ugly */
-       /* set free_view_pos to actual view */
-       th=Xrot/180.0*M_PI;
-       ph=Zrot/180.0*M_PI;
-       free_view_pos_aim = vec_scale(vec_xyz(MATH_SIN(th)*MATH_SIN(ph),MATH_SIN(th)*MATH_COS(ph),MATH_COS(th)),cam_dist);
-       free_view_pos_aim = vec_add( free_view_pos_aim, CUE_BALL_XYPOS );
-       free_view_pos = free_view_pos_aim ;
-   }
-   old_queue_view=queue_view;
-
-   if(!FREE_VIEW) {
-       th=(Xrot+Xrot_offs)/180.0*M_PI;
-       ph=(Zrot+Zrot_offs)/180.0*M_PI;
-       cam_pos=vec_scale(vec_xyz(MATH_SIN(th)*MATH_SIN(ph),MATH_SIN(th)*MATH_COS(ph),MATH_COS(th)), real_dist);
-       cam_pos=vec_add(cam_pos,balls.ball[cue_ball].r);
-   } else {
-       cam_pos=free_view_pos;
-   }
-
-   if(options_cuberef) {
-      create_cuberef_maps(cam_pos);
-   }
-
-   // Begin displaying from here
-
-   glViewport( 0, 0, win_width, win_height);
-
+        }
+    }
+    
+    /******************************************
+     * only called if no balls are moving end *
+     ******************************************/
+    
+    if(g_shot_due && !( options_gamemode==options_gamemode_tournament && (tournament_state.wait_for_next_match || tournament_state.tournament_over))) {
+        g_shot_due=0;
+        if( player[act_player].is_AI && !(player[act_player].winner || player[(act_player+1)%2].winner) ){
+            do_computer_move(1);
+        }
+    }
+    if ( queue_anim > 0.0 ){
+        queue_anim-=(VMfloat)frametime_ms/120.0*g_motion_ratio;
+        if (queue_anim<0.0) queue_anim=0.0;
+        queue_offs=0.16*queue_offs_func((30.0-queue_anim)/30.0);
+        if( queue_anim==0.0 ){
+            queue_shot();
+            queue_offs=0.06;
+        }
+    }
+    
+    if( old_queue_view==1 && queue_view==0  ) { /* this is sloppy and ugly */
+        /* set free_view_pos to actual view */
+        th=Xrot/180.0*M_PI;
+        ph=Zrot/180.0*M_PI;
+        free_view_pos_aim = vec_scale(vec_xyz(MATH_SIN(th)*MATH_SIN(ph),MATH_SIN(th)*MATH_COS(ph),MATH_COS(th)),cam_dist);
+        free_view_pos_aim = vec_add( free_view_pos_aim, CUE_BALL_XYPOS );
+        free_view_pos = free_view_pos_aim ;
+    }
+    old_queue_view=queue_view;
+    
+    if(!FREE_VIEW) {
+        th=(Xrot+Xrot_offs)/180.0*M_PI;
+        ph=(Zrot+Zrot_offs)/180.0*M_PI;
+        cam_pos=vec_scale(vec_xyz(MATH_SIN(th)*MATH_SIN(ph),MATH_SIN(th)*MATH_COS(ph),MATH_COS(th)), real_dist);
+        cam_pos=vec_add(cam_pos,balls.ball[cue_ball].r);
+    } else {
+        cam_pos=free_view_pos;
+    }
+    
+    if(options_cuberef) {
+        create_cuberef_maps(cam_pos);
+    }
+    
+    // Begin displaying from here
+    
+    glViewport( 0, 0, win_width, win_height);
+    
 #ifdef TIME_INTERPOLATE
-   interpolate_balls( &g_lastballs, &balls, &g_drawballs, (VMfloat)g_frametime_fromlast/(VMfloat)g_frametime_laststep );
+    interpolate_balls( &g_lastballs, &balls, &g_drawballs, (VMfloat)g_frametime_fromlast/(VMfloat)g_frametime_laststep );
 #endif
-
-   if(!options_positional_light){
-   // only set if direct light. for positional light is the init on top of the function
-       light0_position[3]=0.0;
-       light1_position[3]=0.0;
-   }
-
-   if(!options_deco){ //fog only without walls and so on
-     if(!FREE_VIEW){
-       glFogf (GL_FOG_START, (cam_dist/2.0>cam_dist-1.0) ? cam_dist/2.0 : cam_dist-1.0 );
-       glFogf (GL_FOG_END, cam_dist+6.0);
-     } else {
-       cam_dist0 = vec_abs(cam_pos);
-       glFogf (GL_FOG_START, (cam_dist0/2.0>cam_dist0-1.0) ? cam_dist0/2.0 : cam_dist0-1.0 );
-       glFogf (GL_FOG_END, cam_dist0+6.0);
-     }
-   }
-
-   real_dist = cam_dist;
-
-   if(options_rgstereo_on) {
-       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-       glClear( GL_COLOR_BUFFER_BIT );
-   }
-   // max. two loops for stereo view
-   for(i=0;i<=options_rgstereo_on;i++) {
-
-   glMatrixMode( GL_MODELVIEW );
-   glLoadIdentity();
-   glMatrixMode( GL_PROJECTION );
-   glLoadIdentity();
-
-   if (options_rgstereo_on){
-       zeye = (VMfloat)win_width/2.0/scr_dpi*0.025/cam_FOV_tan;
-       eye_offs = rg_eye_dist/24.0*znear/zeye; // ###TODO### Slider for eye_offs inside the options
-       glLoadIdentity();
-       switch(i) {
-         case 0:
-           eye_offs0 = 0.0;
-           if (options_rgaim == 0) eye_offs0 = -eye_offs;
-           if (options_rgaim == 1) eye_offs0 = -2.0*eye_offs;
-           if (options_rgaim == 2) eye_offs0 = 0.0;
-           glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
-           glMatrixMode( GL_PROJECTION );
-           glFrustum( -znear*cam_FOV_tan+eye_offs0, znear*cam_FOV_tan+eye_offs0,
-                     -znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width,
-                     +znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width, znear, zfar);
-           glMatrixMode( GL_MODELVIEW );
-           glTranslatef( eye_offs0/znear*zeye, 0.0, 0.0 );
-           break;
-         case 1:
-           eye_offs1 = 0.0;
-           if (options_rgaim == 0) eye_offs1 = +eye_offs;
-           if (options_rgaim == 1) eye_offs1 = 0.0;
-           if (options_rgaim == 2) eye_offs1 = +2.0*eye_offs;
-           glColorMask(GL_FALSE, GL_TRUE, GL_TRUE, GL_TRUE);
-           glMatrixMode( GL_PROJECTION );
-           glFrustum( -znear*cam_FOV_tan+eye_offs1, znear*cam_FOV_tan+eye_offs1,
-                     -znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width,
-                     +znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width, znear, zfar);
-           glMatrixMode( GL_MODELVIEW );
-           glTranslatef( eye_offs1/znear*zeye, 0.0, 0.0 );
-           break;
-       }
-   } else {
-       glMatrixMode( GL_PROJECTION );
-       glFrustum( -znear*cam_FOV_tan, znear*cam_FOV_tan,
-                  -znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width,
-                  +znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width, znear, zfar);
-/*       {
-           // for Debugging the Matrix
-           GLfloat m[16];
-           glGetFloatv(GL_PROJECTION_MATRIX,m);
-           printf("\nmatrix=\n %f %f %f %f\n %f %f %f %f\n %f %f %f %f\n %f %f %f %f\n",
-                  m[0],m[4],m[8],m[12],
-                  m[1],m[5],m[9],m[13],
-                  m[2],m[6],m[10],m[14],
-                  m[3],m[7],m[11],m[15]
-                 );
-
-
-       }*/
-       glMatrixMode( GL_MODELVIEW );
-     }
-
-   if(FREE_VIEW) {
-       glRotatef(Xrot+Xrot_offs, 1.0, 0.0, 0.0);
-       glRotatef(Yrot+Yrot_offs, 0.0, 1.0, 0.0);
-       glRotatef(Zrot+Zrot_offs, 0.0, 0.0, 1.0);
-       glTranslatef( -free_view_pos.x, -free_view_pos.y, -free_view_pos.z );
-       glPushMatrix();
-   } else {
-       glTranslatef( 0.0, 0.0, -real_dist );
-       glPushMatrix();
-       glRotatef(Xrot+Xrot_offs, 1.0, 0.0, 0.0);
-       glRotatef(Yrot+Yrot_offs, 0.0, 1.0, 0.0);
-       glRotatef(Zrot+Zrot_offs, 0.0, 0.0, 1.0);
-       glTranslatef( -balls.ball[cue_ball].r.x, -balls.ball[cue_ball].r.y, -balls.ball[cue_ball].r.z );
-   }
-   glLightfv(GL_LIGHT0, GL_DIFFUSE,  light0_diff);
-   glLightfv(GL_LIGHT0, GL_AMBIENT,  light0_amb);
-   glLightfv(GL_LIGHT0, GL_POSITION, light0_position);
-   glLightfv(GL_LIGHT1, GL_DIFFUSE,  light1_diff);
-   glLightfv(GL_LIGHT1, GL_AMBIENT,  light1_amb);
-   glLightfv(GL_LIGHT1, GL_POSITION, light1_position);
-   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-   // Tron Special Gamemode - and for debugging too.... ;-))
-   if(options_tronmode) {
-     glLineWidth (1.2);
-     glEnable (GL_LINE_SMOOTH);
-     glHint (GL_LINE_SMOOTH_HINT, GL_NICEST);
-     glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
-   } // End Tron Mode
-
-   glCallList(table_obj); // draw table
-
-   glPushMatrix();
-   glCallList(floor_obj); // draw floor
-   Zrot_check = Zrot+Zrot_offs;
-   if(options_deco && !options_tronmode) {     // draw room if option on
-     glCallList(wall1_2_obj);  // room
-     glRotatef(90.0,0.0,0.0,1.1);
-     if(Zrot_check>50.0 && Zrot_check<320.0) {
-       //fprintf(stderr,"Zrot: %f\n",Zrot);
-       // draw the window with the skyline behind, problem......
-       glCallList(wall3_obj);
-     }
-     glCallList(wall4_c_obj);
-   } else {
-   	glRotatef(-90.0,0.0,0.0,1.1);
-   }
-   if(options_tronmode) { //switch Tron Gamemode off
-     glDisable (GL_LINE_SMOOTH);
-     glPolygonMode(GL_FRONT,GL_FILL);
-   } //end tron-mode off
-
-   // draw some meshes (furniture)
-   if(options_furniture) {
-   	 if(!options_tronmode) {
-   	   glCallList(carpet_obj); // first must draw the carpet
-     } else {
-       glMaterialfv(GL_FRONT,GL_AMBIENT, ambient_torus);
-       glMaterialfv(GL_FRONT,GL_DIFFUSE, diffuse_torus);
-       glMaterialfv(GL_FRONT,GL_SPECULAR, specular_torus);
-       glMaterialf (GL_FRONT, GL_SHININESS, 51);
-       glDisable(GL_TEXTURE_2D);
-     }
-     glTranslatef(3.5,-4.0,0.65);
-     glRotatef(180.0,0.0,0.0,1.0);
-     glScalef(1.2,1.2,1.2);
-     glCullFace(GL_FRONT);  // This is a must for blender export models
-     glPolygonMode(GL_BACK,GL_FILL); // fill the back of the polygons
-     if(Zrot_check>170.0) {
-       glPushMatrix();
-       glScalef(0.5,1.0,0.7);
-       glCallList(bartable_id); //table window
-       if(options_tronmode) {
-        glDisable(GL_TEXTURE_2D);
-       }
-       glPopMatrix();
-     }
-     glTranslatef(2.0,0.0,0.0);
-     if(Zrot_check>170.0) {
-       glCallList(sofa_id); //sofa 1
-     }
-     glTranslatef(2.5,0.0,0.0);
-#ifndef WETAB
-     if(Zrot_check>180.0) {
-   	   glCallList(sofa_id); //sofa 2
-     }
-#endif
-     glTranslatef(1.0,0.0,0.0);
-#ifndef WETAB
-     if(Zrot_check>180.0 || Zrot_check<2.0) {
-       glPushMatrix();
-       glScalef(0.5,1.0,0.7);
-       glCallList(bartable_id); //table sofa 2
-    	  if(options_tronmode) {
-        glDisable(GL_TEXTURE_2D);
-    	  }
-       glPopMatrix();
-     }
-#endif
-     glTranslatef(-6.0,-6.0,0.2);
-     glScalef(0.7,0.7,0.7);
-     if(Zrot_check<190.0) {
-   	   glCallList(chair_id); //chair 1
-     }
-     glRotatef(65.0,0.0,0.0,1.0);
-     glTranslatef(1.0,-3.0,0.0);
-     if(Zrot_check<190.0) {
-   	   glCallList(chair_id); //chair 2
-     }
-     glRotatef(115.0,0.0,0.0,1.0);
-     glTranslatef(1.5,0.0,0.2);
-     glScalef(1.1,1.1,1.7);
-     if(Zrot_check<190.0) {
-   	   glCallList(bartable_id); //bar table
-       if(options_tronmode) {
-        glDisable(GL_TEXTURE_2D);
-   	   }
-     }
-     glTranslatef(-5.5,0.6,-0.2);
-     glScalef(1.0,1.3,1.0);
-     if(Zrot_check<190.0 || Zrot_check>320.0) {
-   	   glCallList(sofa_id); //sofa 3
-     }
-     glRotatef(90.0,0.0,0.0,1.0);
-     glTranslatef(-4.0,2.4,-0.43);
-     glScalef(0.6,0.4,0.45);
-     if(options_furniture == 1) {
-         if(Zrot_check<90.0 || Zrot_check>280.0) {
-    	    glCallList(camin_id);   // fireplace
-         if(next_flame > -0.3 ){  // animation of flames in fireplace
-             next_flame-=(VMfloat)frametime_ms/120.0;
-         }
-         if(next_flame<-0.2){
-             next_flame=NEXT_FLAME_COUNTER;
-             if((++flame_frame)>MAX_FIRE_TEXTURES-1) {
-           	  flame_frame = 0;
-             }
-         }
-        display_fire(flame_frame);
-        }
-        if(!options_birdview_on) {
-          glPopMatrix();
-          glPushMatrix();
-          glScalef(0.1,0.7,0.05);
-          glTranslatef(0.0,0.0,20.0);
-          glCallList(lamp_id);  // ceiling lamp
-        }
-     } else {
-       //higher extra-textures
-       glPopMatrix();
-       glPushMatrix();
-       glRotatef(90.0,90.0,0.0,0.0);
-       glDisable(GL_TEXTURE_2D);
-       glEnable(GL_COLOR_MATERIAL);
-       glColor3f(0.2,0.2,0.2);
-       if(Zrot_check<110.0 || Zrot_check>250.0) {
-         display_cartoonguy(); //cartoon guy
-       }
-       if(options_tronmode) {
-         glDisable(GL_COLOR_MATERIAL);
-       }
-       if(Zrot_check>50 && Zrot_check<320) {
-         display_flower(); // flower
-       }
-       if(Zrot_check<190.0) {
-         display_chess(); //chess
-       }
-       if(Zrot_check>170.0) {
-         display_bottle(); //bottle
-         if(options_tronmode) {
-           glEnable(GL_COLOR_MATERIAL);
-         }
-         display_sittingboy(); //sitting boy
-       }
-       glDisable(GL_COLOR_MATERIAL);
-       if(Zrot_check<90.0 || Zrot_check>280.0) {
-       	display_fireplace_high(); // fireplace
-         if(next_flame > -0.3 ){  // animation of flames in fireplace
-           next_flame-=(VMfloat)frametime_ms/120.0;
-         }
-         if(next_flame<-0.2){
-           next_flame=NEXT_FLAME_COUNTER;
-           if((++flame_frame)>MAX_FIRE_TEXTURES-1) {
-         	  flame_frame = 0;
-           }
-         }
-       display_fire_high(flame_frame);
-       }
-       if(!options_birdview_on) {
-        if(Xrot>-55.0) {
-          glDepthMask (GL_FALSE);
-          glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-          glEnable(GL_BLEND);
-        }
-        if(!options_tronmode) {
-          glEnable(GL_COLOR_MATERIAL);
+    
+    if(!options_positional_light){
+        // only set if direct light. for positional light is the init on top of the function
+        light0_position[3]=0.0;
+        light1_position[3]=0.0;
+    }
+    
+    if(!options_deco){ //fog only without walls and so on
+        if(!FREE_VIEW){
+            glFogf (GL_FOG_START, (cam_dist/2.0>cam_dist-1.0) ? cam_dist/2.0 : cam_dist-1.0 );
+            glFogf (GL_FOG_END, cam_dist+6.0);
         } else {
-          glMaterialfv(GL_FRONT,GL_AMBIENT, ambient_torus);
-          glMaterialfv(GL_FRONT,GL_DIFFUSE, diffuse_torus);
-          glMaterialfv(GL_FRONT,GL_SPECULAR, specular_torus);
-          glMaterialf (GL_FRONT, GL_SHININESS, 51);
+            cam_dist0 = vec_abs(cam_pos);
+            glFogf (GL_FOG_START, (cam_dist0/2.0>cam_dist0-1.0) ? cam_dist0/2.0 : cam_dist0-1.0 );
+            glFogf (GL_FOG_END, cam_dist0+6.0);
         }
-        display_ceilinglamp_high();
-        glDisable(GL_COLOR_MATERIAL);
-        glDepthMask (GL_TRUE);
-        glDisable(GL_BLEND);
-       }
-     } // end higher meshes
-     glCullFace(GL_BACK);   // This is a must for blender export models
-     glPolygonMode(GL_BACK,GL_LINE);  // fill the back of the polygons
-   } // end furniture
-   glPopMatrix();
-
-   /* draw balls with reflections and shadows */
-#ifdef TIME_INTERPOLATE
-    if(options_cuberef) {
-        draw_balls(g_drawballs,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, cuberef_allballs_texbind);
-    } else {
-        draw_balls(g_drawballs,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, (unsigned int *)0);
     }
-#else
-    if(options_cuberef) {
-        draw_balls(balls,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, cuberef_allballs_texbind);
-    } else {
-        draw_balls(balls,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, (unsigned int *)0);
+    
+    real_dist = cam_dist;
+    
+    if(options_rgstereo_on) {
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glClear( GL_COLOR_BUFFER_BIT );
     }
-
+    // max. two loops for stereo view
+    for(i=0;i<=options_rgstereo_on;i++) {
+        
+        glMatrixMode( GL_MODELVIEW );
+        glLoadIdentity();
+        glMatrixMode( GL_PROJECTION );
+        glLoadIdentity();
+        
+        if (options_rgstereo_on){
+            zeye = (VMfloat)win_width/2.0/scr_dpi*0.025/cam_FOV_tan;
+            eye_offs = rg_eye_dist/24.0*znear/zeye; // ###TODO### Slider for eye_offs inside the options
+            glLoadIdentity();
+            switch(i) {
+                case 0:
+                    eye_offs0 = 0.0;
+                    if (options_rgaim == 0) eye_offs0 = -eye_offs;
+                    if (options_rgaim == 1) eye_offs0 = -2.0*eye_offs;
+                    if (options_rgaim == 2) eye_offs0 = 0.0;
+                    glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
+                    glMatrixMode( GL_PROJECTION );
+                    glFrustum( -znear*cam_FOV_tan+eye_offs0, znear*cam_FOV_tan+eye_offs0,
+                              -znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width,
+                              +znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width, znear, zfar);
+                    glMatrixMode( GL_MODELVIEW );
+                    glTranslatef( eye_offs0/znear*zeye, 0.0, 0.0 );
+                    break;
+                case 1:
+                    eye_offs1 = 0.0;
+                    if (options_rgaim == 0) eye_offs1 = +eye_offs;
+                    if (options_rgaim == 1) eye_offs1 = 0.0;
+                    if (options_rgaim == 2) eye_offs1 = +2.0*eye_offs;
+                    glColorMask(GL_FALSE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glMatrixMode( GL_PROJECTION );
+                    glFrustum( -znear*cam_FOV_tan+eye_offs1, znear*cam_FOV_tan+eye_offs1,
+                              -znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width,
+                              +znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width, znear, zfar);
+                    glMatrixMode( GL_MODELVIEW );
+                    glTranslatef( eye_offs1/znear*zeye, 0.0, 0.0 );
+                    break;
+            }
+        } else {
+            glMatrixMode( GL_PROJECTION );
+            glFrustum( -znear*cam_FOV_tan, znear*cam_FOV_tan,
+                      -znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width,
+                      +znear*cam_FOV_tan*(VMfloat)win_height/(VMfloat)win_width, znear, zfar);
+            /*       {
+             // for Debugging the Matrix
+             GLfloat m[16];
+             glGetFloatv(GL_PROJECTION_MATRIX,m);
+             printf("\nmatrix=\n %f %f %f %f\n %f %f %f %f\n %f %f %f %f\n %f %f %f %f\n",
+             m[0],m[4],m[8],m[12],
+             m[1],m[5],m[9],m[13],
+             m[2],m[6],m[10],m[14],
+             m[3],m[7],m[11],m[15]
+             );
+             
+             
+             }*/
+            glMatrixMode( GL_MODELVIEW );
+        }
+        
+        if(FREE_VIEW) {
+            glRotatef(Xrot+Xrot_offs, 1.0, 0.0, 0.0);
+            glRotatef(Yrot+Yrot_offs, 0.0, 1.0, 0.0);
+            glRotatef(Zrot+Zrot_offs, 0.0, 0.0, 1.0);
+            glTranslatef( -free_view_pos.x, -free_view_pos.y, -free_view_pos.z );
+            glPushMatrix();
+        } else {
+            glTranslatef( 0.0, 0.0, -real_dist );
+            glPushMatrix();
+            glRotatef(Xrot+Xrot_offs, 1.0, 0.0, 0.0);
+            glRotatef(Yrot+Yrot_offs, 0.0, 1.0, 0.0);
+            glRotatef(Zrot+Zrot_offs, 0.0, 0.0, 1.0);
+            glTranslatef( -balls.ball[cue_ball].r.x, -balls.ball[cue_ball].r.y, -balls.ball[cue_ball].r.z );
+        }
+        glLightfv(GL_LIGHT0, GL_DIFFUSE,  light0_diff);
+        glLightfv(GL_LIGHT0, GL_AMBIENT,  light0_amb);
+        glLightfv(GL_LIGHT0, GL_POSITION, light0_position);
+        glLightfv(GL_LIGHT1, GL_DIFFUSE,  light1_diff);
+        glLightfv(GL_LIGHT1, GL_AMBIENT,  light1_amb);
+        glLightfv(GL_LIGHT1, GL_POSITION, light1_position);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        
+        // Tron Special Gamemode - and for debugging too.... ;-))
+        if(options_tronmode) {
+            glLineWidth (1.2);
+            glEnable (GL_LINE_SMOOTH);
+            glHint (GL_LINE_SMOOTH_HINT, GL_NICEST);
+            glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+        } // End Tron Mode
+        
+        glCallList(table_obj); // draw table
+        
+        glPushMatrix();
+        glCallList(floor_obj); // draw floor
+        Zrot_check = Zrot+Zrot_offs;
+        if(options_deco && !options_tronmode) {     // draw room if option on
+            glCallList(wall1_2_obj);  // room
+            glRotatef(90.0,0.0,0.0,1.1);
+            if(Zrot_check>50.0 && Zrot_check<320.0) {
+                //fprintf(stderr,"Zrot: %f\n",Zrot);
+                // draw the window with the skyline behind, problem......
+                glCallList(wall3_obj);
+            }
+            glCallList(wall4_c_obj);
+        } else {
+            glRotatef(-90.0,0.0,0.0,1.1);
+        }
+        if(options_tronmode) { //switch Tron Gamemode off
+            glDisable (GL_LINE_SMOOTH);
+            glPolygonMode(GL_FRONT,GL_FILL);
+        } //end tron-mode off
+        
+        // draw some meshes (furniture)
+        if(options_furniture) {
+            if(!options_tronmode) {
+                glCallList(carpet_obj); // first must draw the carpet
+            } else {
+                glMaterialfv(GL_FRONT,GL_AMBIENT, ambient_torus);
+                glMaterialfv(GL_FRONT,GL_DIFFUSE, diffuse_torus);
+                glMaterialfv(GL_FRONT,GL_SPECULAR, specular_torus);
+                glMaterialf (GL_FRONT, GL_SHININESS, 51);
+                glDisable(GL_TEXTURE_2D);
+            }
+            glTranslatef(3.5,-4.0,0.65);
+            glRotatef(180.0,0.0,0.0,1.0);
+            glScalef(1.2,1.2,1.2);
+            glCullFace(GL_FRONT);  // This is a must for blender export models
+            glPolygonMode(GL_BACK,GL_FILL); // fill the back of the polygons
+            if(Zrot_check>170.0) {
+                glPushMatrix();
+                glScalef(0.5,1.0,0.7);
+                glCallList(bartable_id); //table window
+                if(options_tronmode) {
+                    glDisable(GL_TEXTURE_2D);
+                }
+                glPopMatrix();
+            }
+            glTranslatef(2.0,0.0,0.0);
+            if(Zrot_check>170.0) {
+                glCallList(sofa_id); //sofa 1
+            }
+            glTranslatef(2.5,0.0,0.0);
+#ifndef WETAB
+            if(Zrot_check>180.0) {
+                glCallList(sofa_id); //sofa 2
+            }
 #endif
-   if( !queue_view && !balls_moving ) {  /* draw queue */
-       draw_queue( balls.ball[cue_ball].r, Xque, Zque, queue_offs, queue_point_x, queue_point_y, spheretexbind, lightpos, lightnr );
-   }
-
-   if (player[act_player].place_cue_ball && !balls_moving) {
-//      glMaterialfv(GL_FRONT, GL_DIFFUSE, col_shad);
-        glDepthMask (GL_FALSE);
-        glEnable(GL_BLEND);
-        glDisable (GL_LIGHTING);
-        glBlendFunc (GL_ONE, GL_ONE);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-        glBindTexture(GL_TEXTURE_2D,placecueballtexbind);
+            glTranslatef(1.0,0.0,0.0);
+#ifndef WETAB
+            if(Zrot_check>180.0 || Zrot_check<2.0) {
+                glPushMatrix();
+                glScalef(0.5,1.0,0.7);
+                glCallList(bartable_id); //table sofa 2
+                if(options_tronmode) {
+                    glDisable(GL_TEXTURE_2D);
+                }
+                glPopMatrix();
+            }
+#endif
+            glTranslatef(-6.0,-6.0,0.2);
+            glScalef(0.7,0.7,0.7);
+            if(Zrot_check<190.0) {
+                glCallList(chair_id); //chair 1
+            }
+            glRotatef(65.0,0.0,0.0,1.0);
+            glTranslatef(1.0,-3.0,0.0);
+            if(Zrot_check<190.0) {
+                glCallList(chair_id); //chair 2
+            }
+            glRotatef(115.0,0.0,0.0,1.0);
+            glTranslatef(1.5,0.0,0.2);
+            glScalef(1.1,1.1,1.7);
+            if(Zrot_check<190.0) {
+                glCallList(bartable_id); //bar table
+                if(options_tronmode) {
+                    glDisable(GL_TEXTURE_2D);
+                }
+            }
+            glTranslatef(-5.5,0.6,-0.2);
+            glScalef(1.0,1.3,1.0);
+            if(Zrot_check<190.0 || Zrot_check>320.0) {
+                glCallList(sofa_id); //sofa 3
+            }
+            glRotatef(90.0,0.0,0.0,1.0);
+            glTranslatef(-4.0,2.4,-0.43);
+            glScalef(0.6,0.4,0.45);
+            if(options_furniture == 1) {
+                if(Zrot_check<90.0 || Zrot_check>280.0) {
+                    glCallList(camin_id);   // fireplace
+                    if(next_flame > -0.3 ){  // animation of flames in fireplace
+                        next_flame-=(VMfloat)frametime_ms/120.0;
+                    }
+                    if(next_flame<-0.2){
+                        next_flame=NEXT_FLAME_COUNTER;
+                        if((++flame_frame)>MAX_FIRE_TEXTURES-1) {
+                            flame_frame = 0;
+                        }
+                    }
+                    display_fire(flame_frame);
+                }
+                if(!options_birdview_on) {
+                    glPopMatrix();
+                    glPushMatrix();
+                    glScalef(0.1,0.7,0.05);
+                    glTranslatef(0.0,0.0,20.0);
+                    glCallList(lamp_id);  // ceiling lamp
+                }
+            } else {
+                //higher extra-textures
+                glPopMatrix();
+                glPushMatrix();
+                glRotatef(90.0,90.0,0.0,0.0);
+                glDisable(GL_TEXTURE_2D);
+                glEnable(GL_COLOR_MATERIAL);
+                glColor3f(0.2,0.2,0.2);
+                if(Zrot_check<110.0 || Zrot_check>250.0) {
+                    display_cartoonguy(); //cartoon guy
+                }
+                if(options_tronmode) {
+                    glDisable(GL_COLOR_MATERIAL);
+                }
+                if(Zrot_check>50 && Zrot_check<320) {
+                    display_flower(); // flower
+                }
+                if(Zrot_check<190.0) {
+                    display_chess(); //chess
+                }
+                if(Zrot_check>170.0) {
+                    display_bottle(); //bottle
+                    if(options_tronmode) {
+                        glEnable(GL_COLOR_MATERIAL);
+                    }
+                    display_sittingboy(); //sitting boy
+                }
+                glDisable(GL_COLOR_MATERIAL);
+                if(Zrot_check<90.0 || Zrot_check>280.0) {
+                    display_fireplace_high(); // fireplace
+                    if(next_flame > -0.3 ){  // animation of flames in fireplace
+                        next_flame-=(VMfloat)frametime_ms/120.0;
+                    }
+                    if(next_flame<-0.2){
+                        next_flame=NEXT_FLAME_COUNTER;
+                        if((++flame_frame)>MAX_FIRE_TEXTURES-1) {
+                            flame_frame = 0;
+                        }
+                    }
+                    display_fire_high(flame_frame);
+                }
+                if(!options_birdview_on) {
+                    if(Xrot>-55.0) {
+                        glDepthMask (GL_FALSE);
+                        glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+                        glEnable(GL_BLEND);
+                    }
+                    if(!options_tronmode) {
+                        glEnable(GL_COLOR_MATERIAL);
+                    } else {
+                        glMaterialfv(GL_FRONT,GL_AMBIENT, ambient_torus);
+                        glMaterialfv(GL_FRONT,GL_DIFFUSE, diffuse_torus);
+                        glMaterialfv(GL_FRONT,GL_SPECULAR, specular_torus);
+                        glMaterialf (GL_FRONT, GL_SHININESS, 51);
+                    }
+                    display_ceilinglamp_high();
+                    glDisable(GL_COLOR_MATERIAL);
+                    glDepthMask (GL_TRUE);
+                    glDisable(GL_BLEND);
+                }
+            } // end higher meshes
+            glCullFace(GL_BACK);   // This is a must for blender export models
+            glPolygonMode(GL_BACK,GL_LINE);  // fill the back of the polygons
+        } // end furniture
+        glPopMatrix();
+        
+        /* draw balls with reflections and shadows */
+#ifdef TIME_INTERPOLATE
+        if(options_cuberef) {
+            draw_balls(g_drawballs,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, cuberef_allballs_texbind);
+        } else {
+            draw_balls(g_drawballs,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, (unsigned int *)0);
+        }
+#else
+        if(options_cuberef) {
+            draw_balls(balls,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, cuberef_allballs_texbind);
+        } else {
+            draw_balls(balls,cam_pos,cam_FOV,win_width, spheretexbind, lightpos,lightnr, (unsigned int *)0);
+        }
+        
+#endif
+        if( !queue_view && !balls_moving ) {  /* draw queue */
+            draw_queue( balls.ball[cue_ball].r, Xque, Zque, queue_offs, queue_point_x, queue_point_y, spheretexbind, lightpos, lightnr );
+        }
+        
+        if (player[act_player].place_cue_ball && !balls_moving) {
+            //      glMaterialfv(GL_FRONT, GL_DIFFUSE, col_shad);
+            glDepthMask (GL_FALSE);
+            glEnable(GL_BLEND);
+            glDisable (GL_LIGHTING);
+            glBlendFunc (GL_ONE, GL_ONE);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+            glBindTexture(GL_TEXTURE_2D,placecueballtexbind);
 #define SH_SZ 0.087
-        GLfloat VertexData[] = {
+            GLfloat VertexData[] = {
                 balls.ball[cue_ball].r.x-SH_SZ, balls.ball[cue_ball].r.y+SH_SZ, balls.ball[cue_ball].r.z-balls.ball[cue_ball].d/2.02,
                 balls.ball[cue_ball].r.x+SH_SZ, balls.ball[cue_ball].r.y+SH_SZ, balls.ball[cue_ball].r.z-balls.ball[cue_ball].d/2.02,
                 balls.ball[cue_ball].r.x-SH_SZ, balls.ball[cue_ball].r.y-SH_SZ, balls.ball[cue_ball].r.z-balls.ball[cue_ball].d/2.02,
                 balls.ball[cue_ball].r.x+SH_SZ, balls.ball[cue_ball].r.y-SH_SZ, balls.ball[cue_ball].r.z-balls.ball[cue_ball].d/2.02
-        };
-        static const GLshort TexData[] = {0,1,1,1,0,0,1,0};
-        static const GLshort NormalData[] = {0,0,1,0,0,1,0,0,1,0,0,1};
-        static const GLfloat ColorData[] = {0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5};
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_NORMAL_ARRAY);
-        glEnableClientState(GL_COLOR_ARRAY);
-        glTexCoordPointer(2,GL_SHORT, 0, TexData);
-        glVertexPointer(3, GL_FLOAT, 0, VertexData);
-        glColorPointer(3, GL_FLOAT, 0, ColorData);
-        glNormalPointer(GL_SHORT,0,NormalData);
-        glPushMatrix();
-        glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-        glPopMatrix();
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_NORMAL_ARRAY);
-        glDisableClientState(GL_COLOR_ARRAY);
-        glDisable(GL_BLEND);
-        glDepthMask (GL_TRUE);
+            };
+            static const GLshort TexData[] = {0,1,1,1,0,0,1,0};
+            static const GLshort NormalData[] = {0,0,1,0,0,1,0,0,1,0,0,1};
+            static const GLfloat ColorData[] = {0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5};
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glEnableClientState(GL_NORMAL_ARRAY);
+            glEnableClientState(GL_COLOR_ARRAY);
+            glTexCoordPointer(2,GL_SHORT, 0, TexData);
+            glVertexPointer(3, GL_FLOAT, 0, VertexData);
+            glColorPointer(3, GL_FLOAT, 0, ColorData);
+            glNormalPointer(GL_SHORT,0,NormalData);
+            glPushMatrix();
+            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            glPopMatrix();
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glDisableClientState(GL_NORMAL_ARRAY);
+            glDisableClientState(GL_COLOR_ARRAY);
+            glDisable(GL_BLEND);
+            glDepthMask (GL_TRUE);
 #undef SH_SZ
-        glEnable (GL_LIGHTING);
-   }
-
-   if( options_balltrace ) {
-     glDisable(GL_TEXTURE_2D);
-     glDisable(GL_LIGHTING);
+            glEnable (GL_LIGHTING);
+        }
+        
+        if( options_balltrace ) {
+            glDisable(GL_TEXTURE_2D);
+            glDisable(GL_LIGHTING);
 #ifdef WETAB_ALIASING
-     if(options_antialiasing) {
-      glLineWidth(1.2);
-      glEnable(GL_LINE_SMOOTH);
-      glHint(GL_LINE_SMOOTH_HINT,GL_NICEST);
-     }
-#endif
-     glEnableClientState(GL_VERTEX_ARRAY);
-     glEnableClientState(GL_NORMAL_ARRAY);
-     glEnableClientState(GL_COLOR_ARRAY);
-     for(m=0;m<balls.nr;m++) {
-        draw_ballpath(&balls.ball[m]);
-     }
-     glDisableClientState(GL_VERTEX_ARRAY);
-     glDisableClientState(GL_NORMAL_ARRAY);
-     glDisableClientState(GL_COLOR_ARRAY);
-#ifdef WETAB_ALIASING
-    if(options_antialiasing) {
-      glDisable(GL_LINE_SMOOTH);
-      glDisable(GL_BLEND);
-    }
-#endif
-     glEnable(GL_LIGHTING);
-     glEnable(GL_TEXTURE_2D);
-   }
-
-   if( (player[0].winner || player[1].winner) ) {
-   	   if(!history_free()) { // only one time for update xml-data
-   	   	  history_set();
-          control_unset(&control__cue_butt_updown);
-          control_unset(&control__english);
-          control_unset(&control__place_cue_ball);
-          control_unset(&control__fov);
-          control_unset(&control__mouse_shoot);
-          if(options_gamemode==options_gamemode_tournament) {
-          	 if(tournament_state.overall_winner>=0) {
-              if(player[0].winner) {
-              	  file_tournament_history(&tournament_state, player[0].name, gametype );
-              } else {
-              	  file_tournament_history(&tournament_state, player[1].name, gametype );
-              }
+            if(options_antialiasing) {
+                glLineWidth(1.2);
+                glEnable(GL_LINE_SMOOTH);
+                glHint(GL_LINE_SMOOTH_HINT,GL_NICEST);
             }
-          } else {
-              if(player[0].winner) {
-                file_history(player[0].name, player[1].name, player[0].name, hitcounter, (roundcounter+1)/2, gametype);
-             } else {
-                file_history(player[0].name, player[1].name, player[1].name, hitcounter, (roundcounter+1)/2, gametype);
-             }
-
-          }
-   	   }
-       if(options_3D_winnertext){
-           if(options_gamemode==options_gamemode_tournament && tournament_state.overall_winner>=0) {
-              draw_3D_winner_tourn_text();
-           } else {
-              draw_3D_winner_text();
-           }
-       }
+#endif
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glEnableClientState(GL_NORMAL_ARRAY);
+            glEnableClientState(GL_COLOR_ARRAY);
+            for(m=0;m<balls.nr;m++) {
+                draw_ballpath(&balls.ball[m]);
+            }
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glDisableClientState(GL_NORMAL_ARRAY);
+            glDisableClientState(GL_COLOR_ARRAY);
+#ifdef WETAB_ALIASING
+            if(options_antialiasing) {
+                glDisable(GL_LINE_SMOOTH);
+                glDisable(GL_BLEND);
+            }
+#endif
+            glEnable(GL_LIGHTING);
+            glEnable(GL_TEXTURE_2D);
+        }
+        
+        if( (player[0].winner || player[1].winner) ) {
+            if(!history_free()) { // only one time for update xml-data
+                history_set();
+                control_unset(&control__cue_butt_updown);
+                control_unset(&control__english);
+                control_unset(&control__place_cue_ball);
+                control_unset(&control__fov);
+                control_unset(&control__mouse_shoot);
+                if(options_gamemode==options_gamemode_tournament) {
+                    if(tournament_state.overall_winner>=0) {
+                        if(player[0].winner) {
+                            file_tournament_history(&tournament_state, player[0].name, gametype );
+                        } else {
+                            file_tournament_history(&tournament_state, player[1].name, gametype );
+                        }
+                    }
+                } else {
+                    if(player[0].winner) {
+                        file_history(player[0].name, player[1].name, player[0].name, hitcounter, (roundcounter+1)/2, gametype);
+                    } else {
+                        file_history(player[0].name, player[1].name, player[1].name, hitcounter, (roundcounter+1)/2, gametype);
+                    }
+                    
+                }
+            }
+            if(options_3D_winnertext){
+                if(options_gamemode==options_gamemode_tournament && tournament_state.overall_winner>=0) {
+                    draw_3D_winner_tourn_text();
+                } else {
+                    draw_3D_winner_text();
+                }
+            }
 #ifdef NETWORKING
-       if(active_net_game) { // end an active netgame
-        close_listener();
-       }
+            if(active_net_game) { // end an active netgame
+                close_listener();
+            }
 #endif
-   }
-
-   if( options_lensflare ) {
-       glDepthMask (GL_FALSE);
-       glEnable(GL_BLEND);
-       glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-       for(m=0;m<1/*lightnr*/;m++){
-           glBlendFunc ( GL_ONE, GL_ONE );
-
-           glBindTexture(GL_TEXTURE_2D,blendetexbind);
-           glGetFloatv(GL_MODELVIEW_MATRIX,mv_matr.m);
-           glGetFloatv(GL_PROJECTION_MATRIX,prj_matr.m);
-
-           dpos1    = matr4_rdot( mv_matr, vec_xyz(0,0,0.77) );
-           centpos = vec_xyz(0,0,-0.5);
-           dpos    = vec_unit(vec_diff( dpos1, centpos ));
-
-           glMatrixMode(GL_MODELVIEW);
-           glPushMatrix();
-           glLoadIdentity();
-           glDisable(GL_LIGHTING);
-           static GLfloat ColorData1[12]; int ci; GLfloat r,g,b;
-           for(k=0;k<3;k++) {
-             for(j=-1;j<20;j++){
-               VMfloat zact;
-               if(!options_rgstereo_on){
-                 r = 1.0*(VMfloat)(k%3!=1); g = 1.0*(VMfloat)(k%3!=2); b = 1.0*(VMfloat)(k%3!=0);
-               } else {
-                 r = 0.5+0.25*(VMfloat)(k%3); g = 0.5+0.25*(VMfloat)(k%3); b = 0.5+0.25*(VMfloat)(k%3);
-               }
-               for(ci = 0;ci<4;ci++) {
-                   ColorData1[0+ci] = r; ColorData1[1+ci] = g; ColorData1[2+ci] = b;
-               }
-               if(j==-1 && k==0){
-                   for(ci = 0;ci<4;ci++) {
-                       ColorData1[0+ci] = 1.0; ColorData1[1+ci] = 1.0; ColorData1[2+ci] = 1.0;
-                   }
-                   glBindTexture(GL_TEXTURE_2D,lightflaretexbind);
-                   zact = dpos1.z;
-                   actpos = dpos1;
-                   right = vec_xyz(0.02/0.4*(0.5-zact),0,0);
-                   up    = vec_xyz(0,0.02/0.4*(0.5-zact),0);
-               } else if(j>=0 && j<10){
-                   glBindTexture(GL_TEXTURE_2D,blendetexbind);
-                   zact = 0.32-0.25*MATH_EXP((j-3)+k*1.4345);
-                   actpos = vec_add( centpos , vec_scale(dpos,zact/dpos.z) );
-                   right = vec_xyz(0.008*(1.0-k*0.23)/0.4*(0.5-zact),0,0);
-                   up    = vec_xyz(0,0.008*(1.0-k*0.23)/0.4*(0.5-zact),0);
-               } else {
-                   glBindTexture(GL_TEXTURE_2D,blendetexbind);
-                   zact = 0.282-0.127*MATH_EXP((j-3-10)+k*1.2453);
-                   actpos = vec_add( centpos , vec_scale(dpos,zact/dpos.z) );
-                   right = vec_xyz(0.003*(1.0-k*0.23)/0.4*(0.5-zact),0,0);
-                   up    = vec_xyz(0,0.003*(1.0-k*0.23)/0.4*(0.5-zact),0);
-               }
-               GLfloat VertexData1[12];
-               VertexData1[0] = actpos.x+up.x-right.x;
-               VertexData1[1] = actpos.y+up.y-right.y;
-               VertexData1[2] = actpos.z+up.z-right.z;
-               VertexData1[3] = actpos.x+up.x+right.x;
-               VertexData1[4] = actpos.y+up.y+right.y;
-               VertexData1[5] = actpos.z+up.z+right.z;
-               VertexData1[9] = actpos.x-up.x+right.x;
-               VertexData1[10] = actpos.y-up.y+right.y;
-               VertexData1[11] = actpos.z-up.z+right.z;
-               VertexData1[6] = actpos.x-up.x-right.x;
-               VertexData1[7] = actpos.y-up.y-right.y;
-               VertexData1[8] = actpos.z-up.z-right.z;
-               static const GLshort TexData1[] = {0,0,1,0,0,1,1,1};
-               glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-               glEnableClientState(GL_VERTEX_ARRAY);
-               glEnableClientState(GL_COLOR_ARRAY);
-               glTexCoordPointer(2,GL_SHORT, 0, TexData1);
-               glVertexPointer(3, GL_FLOAT, 0, VertexData1);
-               glColorPointer(3, GL_FLOAT, 0, ColorData1);
-               glPushMatrix();
-               glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-               glPopMatrix();
-               glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-               glDisableClientState(GL_VERTEX_ARRAY);
-               glDisableClientState(GL_COLOR_ARRAY);
-             }
-           }
-           glPushMatrix();
-           glTranslatef( 0,0,-0.5 );
-           glScalef(0.0005,0.0005,1.0);
-           glPopMatrix();
-           glPopMatrix();
-           glMatrixMode(GL_MODELVIEW);
-       }
-       glDisable(GL_BLEND);
-       glDepthMask (GL_TRUE);
-   }
-
-      /* HUD stuff */
-       glDisable(GL_DEPTH_TEST);
+        }
+        
+        if( options_lensflare ) {
+            glDepthMask (GL_FALSE);
+            glEnable(GL_BLEND);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+            
+            for(m=0;m<1/*lightnr*/;m++){
+                glBlendFunc ( GL_ONE, GL_ONE );
+                
+                glBindTexture(GL_TEXTURE_2D,blendetexbind);
+                glGetFloatv(GL_MODELVIEW_MATRIX,mv_matr.m);
+                glGetFloatv(GL_PROJECTION_MATRIX,prj_matr.m);
+                
+                dpos1    = matr4_rdot( mv_matr, vec_xyz(0,0,0.77) );
+                centpos = vec_xyz(0,0,-0.5);
+                dpos    = vec_unit(vec_diff( dpos1, centpos ));
+                
+                glMatrixMode(GL_MODELVIEW);
+                glPushMatrix();
+                glLoadIdentity();
+                glDisable(GL_LIGHTING);
+                static GLfloat ColorData1[12]; int ci; GLfloat r,g,b;
+                for(k=0;k<3;k++) {
+                    for(j=-1;j<20;j++){
+                        VMfloat zact;
+                        if(!options_rgstereo_on){
+                            r = 1.0*(VMfloat)(k%3!=1); g = 1.0*(VMfloat)(k%3!=2); b = 1.0*(VMfloat)(k%3!=0);
+                        } else {
+                            r = 0.5+0.25*(VMfloat)(k%3); g = 0.5+0.25*(VMfloat)(k%3); b = 0.5+0.25*(VMfloat)(k%3);
+                        }
+                        for(ci = 0;ci<4;ci++) {
+                            ColorData1[0+ci] = r; ColorData1[1+ci] = g; ColorData1[2+ci] = b;
+                        }
+                        if(j==-1 && k==0){
+                            for(ci = 0;ci<4;ci++) {
+                                ColorData1[0+ci] = 1.0; ColorData1[1+ci] = 1.0; ColorData1[2+ci] = 1.0;
+                            }
+                            glBindTexture(GL_TEXTURE_2D,lightflaretexbind);
+                            zact = dpos1.z;
+                            actpos = dpos1;
+                            right = vec_xyz(0.02/0.4*(0.5-zact),0,0);
+                            up    = vec_xyz(0,0.02/0.4*(0.5-zact),0);
+                        } else if(j>=0 && j<10){
+                            glBindTexture(GL_TEXTURE_2D,blendetexbind);
+                            zact = 0.32-0.25*MATH_EXP((j-3)+k*1.4345);
+                            actpos = vec_add( centpos , vec_scale(dpos,zact/dpos.z) );
+                            right = vec_xyz(0.008*(1.0-k*0.23)/0.4*(0.5-zact),0,0);
+                            up    = vec_xyz(0,0.008*(1.0-k*0.23)/0.4*(0.5-zact),0);
+                        } else {
+                            glBindTexture(GL_TEXTURE_2D,blendetexbind);
+                            zact = 0.282-0.127*MATH_EXP((j-3-10)+k*1.2453);
+                            actpos = vec_add( centpos , vec_scale(dpos,zact/dpos.z) );
+                            right = vec_xyz(0.003*(1.0-k*0.23)/0.4*(0.5-zact),0,0);
+                            up    = vec_xyz(0,0.003*(1.0-k*0.23)/0.4*(0.5-zact),0);
+                        }
+                        GLfloat VertexData1[12];
+                        VertexData1[0] = actpos.x+up.x-right.x;
+                        VertexData1[1] = actpos.y+up.y-right.y;
+                        VertexData1[2] = actpos.z+up.z-right.z;
+                        VertexData1[3] = actpos.x+up.x+right.x;
+                        VertexData1[4] = actpos.y+up.y+right.y;
+                        VertexData1[5] = actpos.z+up.z+right.z;
+                        VertexData1[9] = actpos.x-up.x+right.x;
+                        VertexData1[10] = actpos.y-up.y+right.y;
+                        VertexData1[11] = actpos.z-up.z+right.z;
+                        VertexData1[6] = actpos.x-up.x-right.x;
+                        VertexData1[7] = actpos.y-up.y-right.y;
+                        VertexData1[8] = actpos.z-up.z-right.z;
+                        static const GLshort TexData1[] = {0,0,1,0,0,1,1,1};
+                        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                        glEnableClientState(GL_VERTEX_ARRAY);
+                        glEnableClientState(GL_COLOR_ARRAY);
+                        glTexCoordPointer(2,GL_SHORT, 0, TexData1);
+                        glVertexPointer(3, GL_FLOAT, 0, VertexData1);
+                        glColorPointer(3, GL_FLOAT, 0, ColorData1);
+                        glPushMatrix();
+                        glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                        glPopMatrix();
+                        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                        glDisableClientState(GL_VERTEX_ARRAY);
+                        glDisableClientState(GL_COLOR_ARRAY);
+                    }
+                }
+                glPushMatrix();
+                glTranslatef( 0,0,-0.5 );
+                glScalef(0.0005,0.0005,1.0);
+                glPopMatrix();
+                glPopMatrix();
+                glMatrixMode(GL_MODELVIEW);
+            }
+            glDisable(GL_BLEND);
+            glDepthMask (GL_TRUE);
+        }
+        
+        /* HUD stuff */
+        glDisable(GL_DEPTH_TEST);
 #ifndef WETAB
-       // the WeTab is to slow for this !!
-       if((vline_on || (control__active && control__english)) && queue_view && !balls_moving){
-           bz=vec_unit(vec_diff(cam_pos,balls.ball[cue_ball].r));
-           bx=vec_unit(vec_xyz(-bz.y, bz.x, 0));
-           by=vec_cross(bz,bx);
-           p=vec_add(vec_scale(bx,queue_point_x),vec_scale(by,-queue_point_y));
-           p=vec_add(p,balls.ball[cue_ball].r);
-           glEnable(GL_LINE_STIPPLE);
-           glLineStipple(1, 0x3333);
-       GLfloat VertexData2[24];
-           p1=vec_add(p,vec_scale(bx,-0.01));
-           p2=vec_add(p,vec_scale(bx,+0.01));
-           VertexData2[0] = p.x; VertexData2[1] = p.y; VertexData2[2] = p.z;
-           VertexData2[3] = p1.x; VertexData2[4] = p1.y; VertexData2[5] = p1.z;
-           VertexData2[6] = p.x; VertexData2[7] = p.y; VertexData2[8] = p.z;
-           VertexData2[9] = p2.x; VertexData2[10] = p2.y; VertexData2[11] = p2.z;
-           p1=vec_add(p,vec_scale(by,-0.01));
-           p2=vec_add(p,vec_scale(by,+0.01));
-           VertexData2[12] = p.x; VertexData2[13] = p.y; VertexData2[14] = p.z;
-           VertexData2[15] = p1.x; VertexData2[16] = p1.y; VertexData2[17] = p1.z;
-           VertexData2[18] = p.x; VertexData2[19] = p.y; VertexData2[20] = p.z;
-           VertexData2[21] = p2.x; VertexData2[22] = p2.y; VertexData2[23] = p2.z;
-           glEnableClientState(GL_VERTEX_ARRAY);
-           glVertexPointer(3, GL_FLOAT, 0, VertexData2);
-           glPushMatrix();
-           glDrawArrays(GL_LINES, 0, 8);
-           glPopMatrix();
-           glDisableClientState(GL_VERTEX_ARRAY);
-           glDisable(GL_LINE_STIPPLE);
-       }
+        // the WeTab is to slow for this !!
+        if((vline_on || (control__active && control__english)) && queue_view && !balls_moving){
+            bz=vec_unit(vec_diff(cam_pos,balls.ball[cue_ball].r));
+            bx=vec_unit(vec_xyz(-bz.y, bz.x, 0));
+            by=vec_cross(bz,bx);
+            p=vec_add(vec_scale(bx,queue_point_x),vec_scale(by,-queue_point_y));
+            p=vec_add(p,balls.ball[cue_ball].r);
+            glEnable(GL_LINE_STIPPLE);
+            glLineStipple(1, 0x3333);
+            GLfloat VertexData2[24];
+            p1=vec_add(p,vec_scale(bx,-0.01));
+            p2=vec_add(p,vec_scale(bx,+0.01));
+            VertexData2[0] = p.x; VertexData2[1] = p.y; VertexData2[2] = p.z;
+            VertexData2[3] = p1.x; VertexData2[4] = p1.y; VertexData2[5] = p1.z;
+            VertexData2[6] = p.x; VertexData2[7] = p.y; VertexData2[8] = p.z;
+            VertexData2[9] = p2.x; VertexData2[10] = p2.y; VertexData2[11] = p2.z;
+            p1=vec_add(p,vec_scale(by,-0.01));
+            p2=vec_add(p,vec_scale(by,+0.01));
+            VertexData2[12] = p.x; VertexData2[13] = p.y; VertexData2[14] = p.z;
+            VertexData2[15] = p1.x; VertexData2[16] = p1.y; VertexData2[17] = p1.z;
+            VertexData2[18] = p.x; VertexData2[19] = p.y; VertexData2[20] = p.z;
+            VertexData2[21] = p2.x; VertexData2[22] = p2.y; VertexData2[23] = p2.z;
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glVertexPointer(3, GL_FLOAT, 0, VertexData2);
+            glPushMatrix();
+            glDrawArrays(GL_LINES, 0, 8);
+            glPopMatrix();
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glDisable(GL_LINE_STIPPLE);
+        }
 #endif
-     if(hudstuff_id == -1) {
-       hudstuff_id = glGenLists(1);
-       glNewList(hudstuff_id, GL_COMPILE_AND_EXECUTE);
-
-       glMatrixMode( GL_TEXTURE );
-       glPushMatrix();
-       glLoadIdentity();
-
-       glMatrixMode( GL_PROJECTION );
-       glPushMatrix();
-       glLoadIdentity();
-
-       glMatrixMode( GL_MODELVIEW );
-       glPushMatrix();
-       glLoadIdentity();
-
-       glColor3f(1.0,1.0,1.0);
-       glDisable(GL_LIGHTING);
-       glDisable(GL_TEXTURE_2D);
-       glDisable(GL_DEPTH_TEST);
-       glDisable(GL_TEXTURE_GEN_S);
-       glDisable(GL_TEXTURE_GEN_T);
-
-       glEnable(GL_TEXTURE_2D);
-       glEnable(GL_BLEND);
-       glBlendFunc(GL_ONE,GL_ONE);
-       glEndList();
-     } else {
-       //fprintf(stderr,"hudstuff_id %i\n",hudstuff_id);
-       glCallList(hudstuff_id);
-     }
-       // draw statusline
-       if(!(player[0].winner || player[1].winner)) {
-         drawstatustext(win_width, win_height);
-         }
-       /* act player */
-       glPushMatrix();
-       glTranslatef(-0.94,-0.94,-1.0);
-       glScalef(2.0/win_width,2.0/win_height,1.0);
-       if( player[act_player].text != 0 ){
-           textObj_draw( player[act_player].text );
-       }
-       glTranslatef(0,30,0);
-       switch(gametype) {
-        case GAME_8BALL:
-           switch(player[act_player].half_full){
-              case BALL_HALF:
-                glBindTexture(GL_TEXTURE_2D,halfsymboltexbind);
-                break;
-              case BALL_FULL:
-                glBindTexture(GL_TEXTURE_2D,fullsymboltexbind);
-                break;
-              case BALL_ANY:
-                glBindTexture(GL_TEXTURE_2D,fullhalfsymboltexbind);
-                break;
-           }
-           myRect2D_texture();
-           break;
-        case GAME_9BALL:
-           if( player[act_player].next_9ball != 8 ){
-               col = options_col_ball[player[act_player].next_9ball];
-           } else {
-               col = 0x888888;
-           }
-           glColor3ub( col>>16, (col>>8)&0xFF, col&0xFF );
-           textObj_draw( player[act_player].score_text );
-           break;
-        case GAME_SNOOKER:
-        case GAME_CARAMBOL:
-           textObj_draw( player[act_player].score_text );
-           break;
-       }
-       glPopMatrix();
-       /* 2nd player */
-       glPushMatrix();
-       glColor3f(0.0,0.0,1.0);
-       glTranslatef(0.94,-0.94,-1.0);
-       glScalef(2.0/win_width,2.0/win_height,1.0);
-       if( player[act_player?0:1].text != 0 ){
-         textObj_draw_bound( player[act_player?0:1].text, HBOUND_RIGHT, VBOUND_BOTTOM );
-       }
-       if (gametype==GAME_SNOOKER || gametype==GAME_CARAMBOL){
-         glTranslatef(0,30,0);
-    	    textObj_draw_bound( player[act_player?0:1].score_text, HBOUND_RIGHT, VBOUND_BOTTOM );
-       }
-       glPopMatrix();
-
-       if(show_disc) { // save config was choosen
-         glPushMatrix();
-         //glColor3f(1.0,1.0,1.0);
-         glTranslatef(0.03,-0.94,0.0);
-         glScalef(2.0/win_width,2.0/win_height,1.0);
-         glBindTexture(GL_TEXTURE_2D,discbind); //disc png texture
-         myRect2D_texture();
-         glPopMatrix();
-       }
-
-       // now, set the menu bar on left, right and upper one
-       if(!player[act_player].is_net && !balls_moving) {
-       glPushMatrix();
-       glScalef(2.0/win_width,2.0/win_height,1.0);
-#ifdef WETAB
- #define MENUSTEP 20
-#else
- #define MENUSTEP 10
-#endif
-       if(leftmenu == 1) {
-         if(next_leftmenu < 0.05 ){  // animation
-           next_leftmenu+=(VMfloat)frametime_ms/120.0;
-         } else {
-           next_leftmenu = 0.0;
-           leftcount += MENUSTEP;
-         }
-       }
-       if(leftmenu == 3) {
-         if(next_leftmenu < 0.05 ){  // animation
-           next_leftmenu+=(VMfloat)frametime_ms/120.0;
-         } else {
-           next_leftmenu = 0.0;
-           leftcount -= MENUSTEP;
-         }
-       }
-       if(leftcount <0) { leftcount = 0; leftmenu = 0; next_leftmenu = 0.0; }
-       if(leftcount > MENUCOUNT) { leftcount = MENUCOUNT; leftmenu = 2; }
-       glTranslatef(-((VMfloat)win_width/2+180-leftcount),-(VMfloat)win_height/2+170,0.0);
-       static const GLshort VertexData3[] = {0,0,0,0,535,0,215,0,0,215,535,0};
-       static const GLshort TexData3[] = {0,1,0,0,1,1,1,0};
-       static const GLfloat ColorData3[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
-       if( options_gamemode == options_gamemode_training ) {
-          if(mleft_id == -1) {
-            mleft_id = glGenLists(1);
-            glNewList(mleft_id, GL_COMPILE_AND_EXECUTE);
+        if(hudstuff_id == -1) {
+            hudstuff_id = glGenLists(1);
+            glNewList(hudstuff_id, GL_COMPILE_AND_EXECUTE);
+            
+            glMatrixMode( GL_TEXTURE );
+            glPushMatrix();
+            glLoadIdentity();
+            
+            glMatrixMode( GL_PROJECTION );
+            glPushMatrix();
+            glLoadIdentity();
+            
+            glMatrixMode( GL_MODELVIEW );
+            glPushMatrix();
+            glLoadIdentity();
+            
+            glColor3f(1.0,1.0,1.0);
+            glDisable(GL_LIGHTING);
+            glDisable(GL_TEXTURE_2D);
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_TEXTURE_GEN_S);
+            glDisable(GL_TEXTURE_GEN_T);
+            
             glEnable(GL_TEXTURE_2D);
             glEnable(GL_BLEND);
-            glBindTexture(GL_TEXTURE_2D,mleftbind); // left menu bar training
+            glBlendFunc(GL_ONE,GL_ONE);
+            glEndList();
+        } else {
+            //fprintf(stderr,"hudstuff_id %i\n",hudstuff_id);
+            glCallList(hudstuff_id);
+        }
+        // draw statusline
+        if(!(player[0].winner || player[1].winner)) {
+            drawstatustext(win_width, win_height);
+        }
+        /* act player */
+        glPushMatrix();
+        glTranslatef(-0.94,-0.94,-1.0);
+        glScalef(2.0/win_width,2.0/win_height,1.0);
+        if( player[act_player].text != 0 ){
+            textObj_draw( player[act_player].text );
+        }
+        glTranslatef(0,30,0);
+        switch(gametype) {
+            case GAME_8BALL:
+                switch(player[act_player].half_full){
+                    case BALL_HALF:
+                        glBindTexture(GL_TEXTURE_2D,halfsymboltexbind);
+                        break;
+                    case BALL_FULL:
+                        glBindTexture(GL_TEXTURE_2D,fullsymboltexbind);
+                        break;
+                    case BALL_ANY:
+                        glBindTexture(GL_TEXTURE_2D,fullhalfsymboltexbind);
+                        break;
+                }
+                myRect2D_texture();
+                break;
+            case GAME_9BALL:
+                if( player[act_player].next_9ball != 8 ){
+                    col = options_col_ball[player[act_player].next_9ball];
+                } else {
+                    col = 0x888888;
+                }
+                glColor3ub( col>>16, (col>>8)&0xFF, col&0xFF );
+                textObj_draw( player[act_player].score_text );
+                break;
+            case GAME_SNOOKER:
+            case GAME_CARAMBOL:
+                textObj_draw( player[act_player].score_text );
+                break;
+        }
+        glPopMatrix();
+        /* 2nd player */
+        glPushMatrix();
+        glColor3f(0.0,0.0,1.0);
+        glTranslatef(0.94,-0.94,-1.0);
+        glScalef(2.0/win_width,2.0/win_height,1.0);
+        if( player[act_player?0:1].text != 0 ){
+            textObj_draw_bound( player[act_player?0:1].text, HBOUND_RIGHT, VBOUND_BOTTOM );
+        }
+        if (gametype==GAME_SNOOKER || gametype==GAME_CARAMBOL){
+            glTranslatef(0,30,0);
+            textObj_draw_bound( player[act_player?0:1].score_text, HBOUND_RIGHT, VBOUND_BOTTOM );
+        }
+        glPopMatrix();
+        
+        if(show_disc) { // save config was choosen
+            glPushMatrix();
+            //glColor3f(1.0,1.0,1.0);
+            glTranslatef(0.03,-0.94,0.0);
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glBindTexture(GL_TEXTURE_2D,discbind); //disc png texture
+            myRect2D_texture();
+            glPopMatrix();
+        }
+        
+        // now, set the menu bar on left, right and upper one
+        if(!player[act_player].is_net && !balls_moving) {
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+#ifdef WETAB
+#define MENUSTEP 20
+#else
+#define MENUSTEP 10
+#endif
+            if(leftmenu == 1) {
+                if(next_leftmenu < 0.05 ){  // animation
+                    next_leftmenu+=(VMfloat)frametime_ms/120.0;
+                } else {
+                    next_leftmenu = 0.0;
+                    leftcount += MENUSTEP;
+                }
+            }
+            if(leftmenu == 3) {
+                if(next_leftmenu < 0.05 ){  // animation
+                    next_leftmenu+=(VMfloat)frametime_ms/120.0;
+                } else {
+                    next_leftmenu = 0.0;
+                    leftcount -= MENUSTEP;
+                }
+            }
+            if(leftcount <0) { leftcount = 0; leftmenu = 0; next_leftmenu = 0.0; }
+            if(leftcount > MENUCOUNT) { leftcount = MENUCOUNT; leftmenu = 2; }
+            glTranslatef(-((VMfloat)win_width/2+180-leftcount),-(VMfloat)win_height/2+170,0.0);
+            static const GLshort VertexData3[] = {0,0,0,0,535,0,215,0,0,215,535,0};
+            static const GLshort TexData3[] = {0,1,0,0,1,1,1,0};
+            static const GLfloat ColorData3[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
+            if( options_gamemode == options_gamemode_training ) {
+                if(mleft_id == -1) {
+                    mleft_id = glGenLists(1);
+                    glNewList(mleft_id, GL_COMPILE_AND_EXECUTE);
+                    glEnable(GL_TEXTURE_2D);
+                    glEnable(GL_BLEND);
+                    glBindTexture(GL_TEXTURE_2D,mleftbind); // left menu bar training
+                    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glEnableClientState(GL_VERTEX_ARRAY);
+                    glEnableClientState(GL_COLOR_ARRAY);
+                    glTexCoordPointer(2,GL_SHORT, 0, TexData3);
+                    glVertexPointer(3, GL_SHORT, 0, VertexData3);
+                    glColorPointer(3, GL_FLOAT, 0, ColorData3);
+                    glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glDisableClientState(GL_VERTEX_ARRAY);
+                    glDisableClientState(GL_COLOR_ARRAY);
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    glCallList(mleft_id);
+                }
+            } else {
+                if(mleftnormal_id == -1) {
+                    mleftnormal_id = glGenLists(1);
+                    glNewList(mleftnormal_id, GL_COMPILE_AND_EXECUTE);
+                    glEnable(GL_TEXTURE_2D);
+                    glEnable(GL_BLEND);
+                    glBindTexture(GL_TEXTURE_2D,mleftnormalbind); // left menu bar normal
+                    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glEnableClientState(GL_VERTEX_ARRAY);
+                    glEnableClientState(GL_COLOR_ARRAY);
+                    glTexCoordPointer(2,GL_SHORT, 0, TexData3);
+                    glVertexPointer(3, GL_SHORT, 0, VertexData3);
+                    glColorPointer(3, GL_FLOAT, 0, ColorData3);
+                    glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glDisableClientState(GL_VERTEX_ARRAY);
+                    glDisableClientState(GL_COLOR_ARRAY);
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    glCallList(mleftnormal_id);
+                }
+            }
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            if(rightmenu == 1) {
+                if(next_rightmenu < 0.05 ){  // animation
+                    next_rightmenu+=(VMfloat)frametime_ms/120.0;
+                } else {
+                    next_rightmenu = 0.0;
+                    rightcount += MENUSTEP;
+                }
+            }
+            if(rightmenu == 3) {
+                if(next_rightmenu < 0.05 ){  // animation
+                    next_rightmenu+=(VMfloat)frametime_ms/120.0;
+                } else {
+                    next_rightmenu = 0.0;
+                    rightcount -= MENUSTEP;
+                }
+            }
+            if(rightcount <0) { rightcount = 0; rightmenu = 0; }
+            if(rightcount > MENUCOUNT) { rightcount = MENUCOUNT; rightmenu = 2; next_rightmenu = 0.0; }
+            glTranslatef((VMfloat)win_width/2-35-rightcount,-(VMfloat)win_height/2+170,0.0);
+            if(mright_id == -1) {
+                mright_id = glGenLists(1);
+                glNewList(mright_id, GL_COMPILE_AND_EXECUTE);
+                glEnable(GL_TEXTURE_2D);
+                glEnable(GL_BLEND);
+                glBindTexture(GL_TEXTURE_2D,mrightbind); // right menu bar
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                glTexCoordPointer(2,GL_SHORT, 0, TexData3);
+                glVertexPointer(3, GL_SHORT, 0, VertexData3);
+                glColorPointer(3, GL_FLOAT, 0, ColorData3);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
+                glPopMatrix();
+                glEndList();
+            } else {
+                glCallList(mright_id);
+            }
+#ifdef USE_SOUND
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            if(uppermenu == 1) {
+                if(next_uppermenu < 0.05 ){  // animation of uppermenu
+                    next_uppermenu+=(VMfloat)frametime_ms/120.0;
+                } else {
+                    next_uppermenu = 0.0;
+                    uppercount += MENUSTEP;
+                }
+            }
+            if(uppermenu == 3) {
+                if(next_uppermenu < 0.05 ){  // animation of uppermenu
+                    next_uppermenu+=(VMfloat)frametime_ms/120.0;
+                } else {
+                    next_uppermenu = 0.0;
+                    uppercount -= MENUSTEP;
+                }
+            }
+            if(uppercount <0) { uppercount = 0; uppermenu = 0; next_uppermenu = 0.0; }
+            if(uppercount > MENUCOUNT) { uppercount = MENUCOUNT; uppermenu = 2; }
+            glTranslatef((VMfloat)win_width/2-600,(VMfloat)win_height/2-32-uppercount,0.0);
+            if(mupper_id == -1) {
+                mupper_id = glGenLists(1);
+                glNewList(mupper_id, GL_COMPILE_AND_EXECUTE);
+                glEnable(GL_TEXTURE_2D);
+                glEnable(GL_BLEND);
+                glBindTexture(GL_TEXTURE_2D,volumebind); // upper menu bar
+                static const GLshort VertexData4[] = {0,0,0,0,209,0,416,0,0,416,209,0};
+                static const GLshort TexData4[] = {0,1,0,0,1,1,1,0};
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                glTexCoordPointer(2,GL_SHORT, 0, TexData4);
+                glVertexPointer(3, GL_SHORT, 0, VertexData4);
+                glColorPointer(3, GL_FLOAT, 0, ColorData3);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
+                glPopMatrix();
+                glEndList();
+            } else {
+                glCallList(mupper_id);
+            }
+#endif
+        } //End Menu bar left, right and upper one
+        glPushMatrix();
+        glScalef(2.0/win_width,2.0/win_height,1.0);
+        glTranslatef((VMfloat)win_width/2-358,(VMfloat)win_height/2-32,0.0);
+        if(mscreen_id == -1) {
+            mscreen_id = glGenLists(1);
+            glNewList(mscreen_id, GL_COMPILE_AND_EXECUTE);
+            glEnable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            glBindTexture(GL_TEXTURE_2D,screenbind); // screenshot button
+            static const GLshort VertexData5[] = {0,0,0,0,32,0,52,0,0,52,32,0};
+            static const GLshort TexData5[] = {0,1,0,0,1,1,1,0};
+            static const GLfloat ColorData5[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
             glEnableClientState(GL_TEXTURE_COORD_ARRAY);
             glEnableClientState(GL_VERTEX_ARRAY);
             glEnableClientState(GL_COLOR_ARRAY);
-            glTexCoordPointer(2,GL_SHORT, 0, TexData3);
-            glVertexPointer(3, GL_SHORT, 0, VertexData3);
-            glColorPointer(3, GL_FLOAT, 0, ColorData3);
+            glTexCoordPointer(2,GL_SHORT, 0, TexData5);
+            glVertexPointer(3, GL_SHORT, 0, VertexData5);
+            glColorPointer(3, GL_FLOAT, 0, ColorData5);
             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             glDisableClientState(GL_TEXTURE_COORD_ARRAY);
             glDisableClientState(GL_VERTEX_ARRAY);
             glDisableClientState(GL_COLOR_ARRAY);
             glPopMatrix();
             glEndList();
-          } else {
-            glCallList(mleft_id);
-          }
-       } else {
-        if(mleftnormal_id == -1) {
-          mleftnormal_id = glGenLists(1);
-          glNewList(mleftnormal_id, GL_COMPILE_AND_EXECUTE);
-          glEnable(GL_TEXTURE_2D);
-          glEnable(GL_BLEND);
-          glBindTexture(GL_TEXTURE_2D,mleftnormalbind); // left menu bar normal
-          glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-          glEnableClientState(GL_VERTEX_ARRAY);
-          glEnableClientState(GL_COLOR_ARRAY);
-          glTexCoordPointer(2,GL_SHORT, 0, TexData3);
-          glVertexPointer(3, GL_SHORT, 0, VertexData3);
-          glColorPointer(3, GL_FLOAT, 0, ColorData3);
-          glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-          glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-          glDisableClientState(GL_VERTEX_ARRAY);
-          glDisableClientState(GL_COLOR_ARRAY);
-          glPopMatrix();
-          glEndList();
         } else {
-          glCallList(mleftnormal_id);
+            glCallList(mscreen_id);
         }
-       }
-       glPushMatrix();
-       glScalef(2.0/win_width,2.0/win_height,1.0);
-       if(rightmenu == 1) {
-         if(next_rightmenu < 0.05 ){  // animation
-           next_rightmenu+=(VMfloat)frametime_ms/120.0;
-         } else {
-           next_rightmenu = 0.0;
-           rightcount += MENUSTEP;
-         }
-       }
-       if(rightmenu == 3) {
-         if(next_rightmenu < 0.05 ){  // animation
-           next_rightmenu+=(VMfloat)frametime_ms/120.0;
-         } else {
-           next_rightmenu = 0.0;
-           rightcount -= MENUSTEP;
-         }
-       }
-       if(rightcount <0) { rightcount = 0; rightmenu = 0; }
-       if(rightcount > MENUCOUNT) { rightcount = MENUCOUNT; rightmenu = 2; next_rightmenu = 0.0; }
-       glTranslatef((VMfloat)win_width/2-35-rightcount,-(VMfloat)win_height/2+170,0.0);
-       if(mright_id == -1) {
-         mright_id = glGenLists(1);
-         glNewList(mright_id, GL_COMPILE_AND_EXECUTE);
-         glEnable(GL_TEXTURE_2D);
-         glEnable(GL_BLEND);
-         glBindTexture(GL_TEXTURE_2D,mrightbind); // right menu bar
-         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-         glEnableClientState(GL_VERTEX_ARRAY);
-         glEnableClientState(GL_COLOR_ARRAY);
-         glTexCoordPointer(2,GL_SHORT, 0, TexData3);
-         glVertexPointer(3, GL_SHORT, 0, VertexData3);
-         glColorPointer(3, GL_FLOAT, 0, ColorData3);
-         glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-         glDisableClientState(GL_VERTEX_ARRAY);
-         glDisableClientState(GL_COLOR_ARRAY);
-         glPopMatrix();
-         glEndList();
-       } else {
-         glCallList(mright_id);
-       }
-#ifdef USE_SOUND
-       glPushMatrix();
-       glScalef(2.0/win_width,2.0/win_height,1.0);
-       if(uppermenu == 1) {
-         if(next_uppermenu < 0.05 ){  // animation of uppermenu
-           next_uppermenu+=(VMfloat)frametime_ms/120.0;
-         } else {
-           next_uppermenu = 0.0;
-           uppercount += MENUSTEP;
-         }
-       }
-       if(uppermenu == 3) {
-         if(next_uppermenu < 0.05 ){  // animation of uppermenu
-           next_uppermenu+=(VMfloat)frametime_ms/120.0;
-         } else {
-           next_uppermenu = 0.0;
-           uppercount -= MENUSTEP;
-         }
-       }
-       if(uppercount <0) { uppercount = 0; uppermenu = 0; next_uppermenu = 0.0; }
-       if(uppercount > MENUCOUNT) { uppercount = MENUCOUNT; uppermenu = 2; }
-       glTranslatef((VMfloat)win_width/2-600,(VMfloat)win_height/2-32-uppercount,0.0);
-       if(mupper_id == -1) {
-         mupper_id = glGenLists(1);
-         glNewList(mupper_id, GL_COMPILE_AND_EXECUTE);
-         glEnable(GL_TEXTURE_2D);
-         glEnable(GL_BLEND);
-         glBindTexture(GL_TEXTURE_2D,volumebind); // upper menu bar
-         static const GLshort VertexData4[] = {0,0,0,0,209,0,416,0,0,416,209,0};
-         static const GLshort TexData4[] = {0,1,0,0,1,1,1,0};
-         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-         glEnableClientState(GL_VERTEX_ARRAY);
-         glEnableClientState(GL_COLOR_ARRAY);
-         glTexCoordPointer(2,GL_SHORT, 0, TexData4);
-         glVertexPointer(3, GL_SHORT, 0, VertexData4);
-         glColorPointer(3, GL_FLOAT, 0, ColorData3);
-         glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-         glDisableClientState(GL_VERTEX_ARRAY);
-         glDisableClientState(GL_COLOR_ARRAY);
-         glPopMatrix();
-         glEndList();
-       } else {
-         glCallList(mupper_id);
-       }
-#endif
-       } //End Menu bar left, right and upper one
-       glPushMatrix();
-       glScalef(2.0/win_width,2.0/win_height,1.0);
-       glTranslatef((VMfloat)win_width/2-358,(VMfloat)win_height/2-32,0.0);
-       if(mscreen_id == -1) {
-         mscreen_id = glGenLists(1);
-         glNewList(mscreen_id, GL_COMPILE_AND_EXECUTE);
-         glEnable(GL_TEXTURE_2D);
-         glEnable(GL_BLEND);
-         glBindTexture(GL_TEXTURE_2D,screenbind); // screenshot button
-         static const GLshort VertexData5[] = {0,0,0,0,32,0,52,0,0,52,32,0};
-         static const GLshort TexData5[] = {0,1,0,0,1,1,1,0};
-         static const GLfloat ColorData5[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
-         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-         glEnableClientState(GL_VERTEX_ARRAY);
-         glEnableClientState(GL_COLOR_ARRAY);
-         glTexCoordPointer(2,GL_SHORT, 0, TexData5);
-         glVertexPointer(3, GL_SHORT, 0, VertexData5);
-         glColorPointer(3, GL_FLOAT, 0, ColorData5);
-         glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-         glDisableClientState(GL_VERTEX_ARRAY);
-         glDisableClientState(GL_COLOR_ARRAY);
-         glPopMatrix();
-         glEndList();
-       } else {
-         glCallList(mscreen_id);
-       }
-       /* Pause Button not in network-game */
+        /* Pause Button not in network-game */
 #ifdef NETWORKING
-       if(network_game == no_network) {
+        if(network_game == no_network) {
 #endif
-          glPushMatrix();
-          glScalef(2.0/win_width,2.0/win_height,1.0);
-          glTranslatef((VMfloat)win_width/2-358+60,(VMfloat)win_height/2-32,0.0);
-          if(pscreen_id[0] == -1) {
-              pscreen_id[0] = glGenLists(1);
-              glNewList(pscreen_id[0], GL_COMPILE);
-              glEnable(GL_TEXTURE_2D);
-              glEnable(GL_BLEND);
-              glBindTexture(GL_TEXTURE_2D,pausebind); // pause button
-              static const GLshort VertexData10[] = {0,0,0,0,32,0,52,0,0,52,32,0};
-              static const GLshort TexData10[] = {0,1,0,0,1,1,1,0};
-              static const GLfloat ColorData10[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
-              glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-              glEnableClientState(GL_VERTEX_ARRAY);
-              glEnableClientState(GL_COLOR_ARRAY);
-              glTexCoordPointer(2,GL_SHORT, 0, TexData10);
-              glVertexPointer(3, GL_SHORT, 0, VertexData10);
-              glColorPointer(3, GL_FLOAT, 0, ColorData10);
-              glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-              glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-              glDisableClientState(GL_VERTEX_ARRAY);
-              glDisableClientState(GL_COLOR_ARRAY);
-              glPopMatrix();
-              glEndList();
-          }
-          if(pscreen_id[1] == -1) {
-              pscreen_id[1] = glGenLists(1);
-              glNewList(pscreen_id[1], GL_COMPILE);
-              glEnable(GL_TEXTURE_2D);
-              glEnable(GL_BLEND);
-              glBindTexture(GL_TEXTURE_2D,pausebind1); // pause button
-              static const GLshort VertexData11[] = {0,0,0,0,32,0,52,0,0,52,32,0};
-              static const GLshort TexData11[] = {0,1,0,0,1,1,1,0};
-              static const GLfloat ColorData11[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
-              glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-              glEnableClientState(GL_VERTEX_ARRAY);
-              glEnableClientState(GL_COLOR_ARRAY);
-              glTexCoordPointer(2,GL_SHORT, 0, TexData11);
-              glVertexPointer(3, GL_SHORT, 0, VertexData11);
-              glColorPointer(3, GL_FLOAT, 0, ColorData11);
-              glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-              glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-              glDisableClientState(GL_VERTEX_ARRAY);
-              glDisableClientState(GL_COLOR_ARRAY);
-              glPopMatrix();
-              glEndList();
-          }
-          glCallList(pscreen_id[options_pause]);
-
-          glPushMatrix();
-          glScalef(2.0/win_width,2.0/win_height,1.0);
-          glTranslatef((VMfloat)win_width/2-358+120,(VMfloat)win_height/2-32,0.0);
-          if(breakscreen_id == -1) {
-              breakscreen_id = glGenLists(1);
-              glNewList(breakscreen_id, GL_COMPILE_AND_EXECUTE);
-              glEnable(GL_TEXTURE_2D);
-              glEnable(GL_BLEND);
-              glBindTexture(GL_TEXTURE_2D,cancelbind); // break button
-              static const GLshort VertexData12[] = {0,0,0,0,32,0,52,0,0,52,32,0};
-              static const GLshort TexData12[] = {0,1,0,0,1,1,1,0};
-              static const GLfloat ColorData12[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
-              glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-              glEnableClientState(GL_VERTEX_ARRAY);
-              glEnableClientState(GL_COLOR_ARRAY);
-              glTexCoordPointer(2,GL_SHORT, 0, TexData12);
-              glVertexPointer(3, GL_SHORT, 0, VertexData12);
-              glColorPointer(3, GL_FLOAT, 0, ColorData12);
-              glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-              glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-              glDisableClientState(GL_VERTEX_ARRAY);
-              glDisableClientState(GL_COLOR_ARRAY);
-              glPopMatrix();
-              glEndList();
-          } else {
-              glCallList(breakscreen_id);
-          }
-
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glTranslatef((VMfloat)win_width/2-358+60,(VMfloat)win_height/2-32,0.0);
+            if(pscreen_id[0] == -1) {
+                pscreen_id[0] = glGenLists(1);
+                glNewList(pscreen_id[0], GL_COMPILE);
+                glEnable(GL_TEXTURE_2D);
+                glEnable(GL_BLEND);
+                glBindTexture(GL_TEXTURE_2D,pausebind); // pause button
+                static const GLshort VertexData10[] = {0,0,0,0,32,0,52,0,0,52,32,0};
+                static const GLshort TexData10[] = {0,1,0,0,1,1,1,0};
+                static const GLfloat ColorData10[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                glTexCoordPointer(2,GL_SHORT, 0, TexData10);
+                glVertexPointer(3, GL_SHORT, 0, VertexData10);
+                glColorPointer(3, GL_FLOAT, 0, ColorData10);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
+                glPopMatrix();
+                glEndList();
+            }
+            if(pscreen_id[1] == -1) {
+                pscreen_id[1] = glGenLists(1);
+                glNewList(pscreen_id[1], GL_COMPILE);
+                glEnable(GL_TEXTURE_2D);
+                glEnable(GL_BLEND);
+                glBindTexture(GL_TEXTURE_2D,pausebind1); // pause button
+                static const GLshort VertexData11[] = {0,0,0,0,32,0,52,0,0,52,32,0};
+                static const GLshort TexData11[] = {0,1,0,0,1,1,1,0};
+                static const GLfloat ColorData11[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                glTexCoordPointer(2,GL_SHORT, 0, TexData11);
+                glVertexPointer(3, GL_SHORT, 0, VertexData11);
+                glColorPointer(3, GL_FLOAT, 0, ColorData11);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
+                glPopMatrix();
+                glEndList();
+            }
+            glCallList(pscreen_id[options_pause]);
+            
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glTranslatef((VMfloat)win_width/2-358+120,(VMfloat)win_height/2-32,0.0);
+            if(breakscreen_id == -1) {
+                breakscreen_id = glGenLists(1);
+                glNewList(breakscreen_id, GL_COMPILE_AND_EXECUTE);
+                glEnable(GL_TEXTURE_2D);
+                glEnable(GL_BLEND);
+                glBindTexture(GL_TEXTURE_2D,cancelbind); // break button
+                static const GLshort VertexData12[] = {0,0,0,0,32,0,52,0,0,52,32,0};
+                static const GLshort TexData12[] = {0,1,0,0,1,1,1,0};
+                static const GLfloat ColorData12[] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                glTexCoordPointer(2,GL_SHORT, 0, TexData12);
+                glVertexPointer(3, GL_SHORT, 0, VertexData12);
+                glColorPointer(3, GL_FLOAT, 0, ColorData12);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
+                glPopMatrix();
+                glEndList();
+            } else {
+                glCallList(breakscreen_id);
+            }
+            
 #ifdef NETWORKING
-       }
+        }
 #endif
 #undef MENUSTEP
-       glDisable(GL_LIGHTING);
-       glDisable(GL_TEXTURE_2D);
-       glEnable(GL_BLEND);
-       glBlendFunc(GL_ONE,GL_ONE);
-
-       /* strength bar */
-       if(!(options_gamemode==options_gamemode_tournament && tournament_state.wait_for_next_match) && !player[act_player].is_AI && !balls_moving) {
-       /* disable strength bar if tournament window, player is net or ai is active and no balls where moving */
-    	   myRect2D( -0.5, -0.755, 0.5, -0.675, 0.25, 0.2 );
-           myRect2D( -0.5, -0.745,-0.5+queue_strength, -0.685, 0.0, 0.3 );
-           glPushMatrix();
-           glTranslatef(-0.5,-0.755, 0.0);
-           glScalef(2.0/win_width,2.0/win_height,1.0);
-           glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the strength bar begin
-           glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-           glGetIntegerv(GL_VIEWPORT,b_viewport);
-           gluProject(-0.5,-0.755,0.0,b_modelview,b_projection,b_viewport,&x_strengthbar,&y_strengthbar,&z_dummy);
-           glPopMatrix();
-           glPushMatrix();
-           glTranslatef(0.5,-0.675, 0.0);
-           glScalef(2.0/win_width,2.0/win_height,1.0);
-           glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the strength bar end
-           glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-           glGetIntegerv(GL_VIEWPORT,b_viewport);
-           gluProject(0.5,-0.675,0.0,b_modelview,b_projection,b_viewport,&x_strengthbar_end,&y_strengthbar_end,&z_dummy);
-           glPopMatrix();
-           //percent on the strength bar
-           sprintf(stbar_text,"%03u%%",(unsigned int)(queue_strength*100));
-           textObj_setText(stbar_text_obj,stbar_text);
-           glEnable(GL_TEXTURE_2D);
-           glPushMatrix();
-           glTranslatef(-0.02,-0.745, 0.0);
-           glScalef(2.0/win_width,2.0/win_height,1.0);
-           glColor3f(0.8,0.8,0.8);
-           textObj_draw(stbar_text_obj);    //Draw the strength adjustment percent
-           glPopMatrix();
-           //Show the control Buttons on the Screen ?
-           if(options_show_buttons && !player[act_player].is_net) {
-             glPushMatrix();
-             //glColor3f(1.0,1.0,1.0);   // Begin draw the buttons
-             glTranslatef(-0.72,-0.72,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
-             glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-             glGetIntegerv(GL_VIEWPORT,b_viewport);
-             gluProject(-0.72,-0.72,0.0,b_modelview,b_projection,b_viewport,&x_upbutton,&y_upbutton,&z_dummy);
-             //fprintf(stderr,"up button x %f y %f\n",x_upbutton,y_upbutton);
-             glBindTexture(GL_TEXTURE_2D,utexbind); //Up button - zoom+
-             myRect2D_texture();
-
-             glTranslatef(0.0,-40.0,0.0);
-             glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
-             glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-             glGetIntegerv(GL_VIEWPORT,b_viewport);
-             gluProject(-0.72,-0.82,0.0,b_modelview,b_projection,b_viewport,&x_downbutton,&y_downbutton,&z_dummy);
-             glBindTexture(GL_TEXTURE_2D,dtexbind); //Down button - zoom-
-             myRect2D_texture();
-
-             glTranslatef(50.0,18,0.0);
-             glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
-             glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-             glGetIntegerv(GL_VIEWPORT,b_viewport);
-             gluProject(-0.62,-0.77,0.0,b_modelview,b_projection,b_viewport,&x_backbutton,&y_backbutton,&z_dummy);
-             glBindTexture(GL_TEXTURE_2D,btexbind); //Back button
-             myRect2D_texture();
-
-             glPopMatrix();
-             glPushMatrix();
-             glTranslatef(0.515,-0.77,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
-             glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-             glGetIntegerv(GL_VIEWPORT,b_viewport);
-             gluProject(0.515,-0.77,0.0,b_modelview,b_projection,b_viewport,&x_nextbutton,&y_nextbutton,&z_dummy);
-             glBindTexture(GL_TEXTURE_2D,ntexbind);  //Next Button
-             myRect2D_texture();
-
-             glTranslatef(60.0,0.0,0.0);
-             glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
-             glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
-             glGetIntegerv(GL_VIEWPORT,b_viewport);
-             gluProject(0.643,-0.77,0.0,b_modelview,b_projection,b_viewport,&x_shootbutton,&y_shootbutton,&z_dummy);
-             glBindTexture(GL_TEXTURE_2D,stexbind);  //Shoot Button
-             myRect2D_texture();
-             glPopMatrix();
-           }
-           glDisable(GL_TEXTURE_2D);
-       }
-#ifdef NETWORKING
-       // show the network game end button if network is active
-       if(active_net_game) {
-           glEnable(GL_TEXTURE_2D);
-           glPushMatrix();
-           glScalef(2.0/win_width,2.0/win_height,1.0);
-           glTranslatef((VMfloat)win_width/2-60,(VMfloat)win_height/2-60,0.0);
-           glBindTexture(GL_TEXTURE_2D,networkbind); //network game close button
-           myRect2D_texture();
-           glPopMatrix();
-           glDisable(GL_TEXTURE_2D);
-       }
-#endif
-       // show the helpline
-       if (vline_on && queue_view && !balls_moving ) {
-    	    if(vline_id == -1) {
-           vline_id = glGenLists(1);
-    	   glNewList(vline_id, GL_COMPILE_AND_EXECUTE);
-           glPushMatrix();
-           glLineStipple( 1, 0xF0F0 );
-           glEnable(GL_LINE_STIPPLE);
-           static const GLfloat VertexData6[] = {0.0,1.00,0.5,0.0,0.08,0.5};
-           static const GLfloat ColorData6[] = {0.3,0.3,0.3,0.3,0.3,0.3};
-           glEnableClientState(GL_VERTEX_ARRAY);
-           glEnableClientState(GL_COLOR_ARRAY);
-           glVertexPointer(3, GL_FLOAT, 0, VertexData6);
-           glColorPointer(3, GL_FLOAT, 0, ColorData6);
-           glDrawArrays(GL_LINES, 0, 2);
-           glDisableClientState(GL_VERTEX_ARRAY);
-           glDisableClientState(GL_COLOR_ARRAY);
-           glDisable(GL_LINE_STIPPLE);
-           glPopMatrix();
-           glEndList();
-    	   } else {
-           //fprintf(stderr,"vline_id %i\n",vline_id);
-           glCallList(vline_id);
-        }
-       }
-       glEnable(GL_BLEND);
-       glBlendFunc(GL_ONE,GL_ONE);
-       glEnable(GL_TEXTURE_2D);
-
-       //Special Keys are active ?
-       if(!balls_moving && !player[act_player].is_AI && !player[act_player].is_net) {
-         //place cue ball - Stipple in almost blue over it
-         if (!FREE_VIEW && control__place_cue_ball) {
-           if(cueball_id == -1) {
-             cueball_id = glGenLists(1);
-        	 glNewList(cueball_id, GL_COMPILE_AND_EXECUTE);
-             glPushMatrix();
-             glDisable(GL_BLEND);
-             glDisable(GL_TEXTURE_2D);
-             glLineWidth(20.0);
-             glLineStipple( 1, 0x5555 );
-             glEnable(GL_LINE_STIPPLE);
-             static const GLfloat VertexData7[] = {0.0,0.20,0.5,0.0,0.08,0.5};
-             static const GLfloat ColorData7[] = {0.2,0.2,1.0,0.2,0.2,1.0};
-             glEnableClientState(GL_VERTEX_ARRAY);
-             glEnableClientState(GL_COLOR_ARRAY);
-             glVertexPointer(3, GL_FLOAT, 0, VertexData7);
-             glColorPointer(3, GL_FLOAT, 0, ColorData7);
-             glDrawArrays(GL_LINES, 0, 2);
-             glDisableClientState(GL_VERTEX_ARRAY);
-             glDisableClientState(GL_COLOR_ARRAY);
-             glLineWidth(1.0);
-             glDisable(GL_LINE_STIPPLE);
-             glPopMatrix();
-             glEnable(GL_TEXTURE_2D);
-             glEnable(GL_BLEND);
-             glEndList();
-      	    } else {
-             //fprintf(stderr,"place_cue_ball %i\n",cueball_id);
-             glCallList(cueball_id);
-           }
-         }
-         // english moving (white ball, cross left and special graphic right corner)
-         if(control__english) {
-           if(english_id == -1) {
-             english_id = glGenLists(1);
-             glNewList(english_id, GL_COMPILE_AND_EXECUTE);
-             glPushMatrix();
-             glTranslatef(-0.95,0.15,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glBindTexture(GL_TEXTURE_2D,englishbind); //English Control if set
-             static const GLshort VertexData8[] = {0,0,0,0,256,0,256,0,0,256,256,0};
-             static const GLshort TexData8[] = {0,1,0,0,1,1,1,0};
-             static const GLfloat ColorData8[] = {0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9};
-             glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-             glEnableClientState(GL_VERTEX_ARRAY);
-             glEnableClientState(GL_COLOR_ARRAY);
-             glTexCoordPointer(2,GL_SHORT, 0, TexData8);
-             glVertexPointer(3, GL_SHORT, 0, VertexData8);
-             glColorPointer(3, GL_FLOAT, 0, ColorData8);
-             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-             glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-             glDisableClientState(GL_VERTEX_ARRAY);
-             glDisableClientState(GL_COLOR_ARRAY);
-             glEndList();
-    	   } else {
-             //fprintf(stderr,"english move %i\n",english_id);
-             glCallList(english_id);
-           }
-           //draw the cross on the big white ball if english set is active
-           //then middle position is 106,100,0.0
-           glTranslatef(106.0+(queue_point_x*5300),100.0-(queue_point_y*5300),0.0);
-           glBindTexture(GL_TEXTURE_2D,kreuzbind); //English control cross png texture
-           if(english1_id == -1) {
-             english1_id = glGenLists(1);
-             glNewList(english1_id, GL_COMPILE_AND_EXECUTE);
-             myRect2D_texture();
-             glPopMatrix();
-             glPushMatrix();
-             glTranslatef(0.03,-0.94,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glBindTexture(GL_TEXTURE_2D,ebind); //English control mode png texture
-             myRect2D_texture();
-             glPopMatrix();
-             glEndList();
-  	       } else {
-             //fprintf(stderr,"english move %i\n",english1_id);
-             glCallList(english1_id);
-           }
-         }
-         if(control__mouse_shoot) {
-           if(shoot_id == -1) {
-             shoot_id = glGenLists(1);
-             glNewList(shoot_id, GL_COMPILE_AND_EXECUTE);
-             glPushMatrix();
-             glTranslatef(0.03,-0.94,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glBindTexture(GL_TEXTURE_2D,sbind); //mouse shoot mode png texture
-             myRect2D_texture();
-             glPopMatrix();
-             glEndList();
-	       } else {
-             //fprintf(stderr,"mouse shoot %i\n",shoot_id);
-             glCallList(shoot_id);
-           }
-         }
-         if(control__cue_butt_updown) {
-           if(cuebutt_id == -1) {
-             cuebutt_id = glGenLists(1);
-             glNewList(cuebutt_id, GL_COMPILE_AND_EXECUTE);
-             glPushMatrix();
-             glTranslatef(0.03,-0.94,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glBindTexture(GL_TEXTURE_2D,bbind); //cue up/down control mode png texture
-             myRect2D_texture();
-             glPopMatrix();
-             glEndList();
-	       } else {
-             //fprintf(stderr,"cue butt up/down %i\n",cuebutt_id);
-             glCallList(cuebutt_id);
-           }
-         }
-         if(control__place_cue_ball) {
-           if(cueball1_id == -1) {
-             cueball1_id = glGenLists(1);
-             glNewList(cueball1_id, GL_COMPILE_AND_EXECUTE);
-             glPushMatrix();
-             glTranslatef(0.03,-0.94,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glBindTexture(GL_TEXTURE_2D,mbind); //set cue ball control mode png texture
-             myRect2D_texture();
-             glPopMatrix();
-             glEndList();
-	       } else {
-             //fprintf(stderr,"place cue ball %i\n",cueball1_id);
-             glCallList(cueball1_id);
-           }
-         }
-         if(control__fov) {
-           if(fov_id == -1) {
-             fov_id = glGenLists(1);
-             glNewList(fov_id, GL_COMPILE_AND_EXECUTE);
-             glPushMatrix();
-             glTranslatef(0.03,-0.94,0.0);
-             glScalef(2.0/win_width,2.0/win_height,1.0);
-             glBindTexture(GL_TEXTURE_2D,fbind); //FOV control mode png texture
-             myRect2D_texture();
-             glPopMatrix();
-             glEndList();
-	       } else {
-             //fprintf(stderr,"FOV %i\n",fov_id);
-             glCallList(fov_id);
-           }
-         }
-       }
-       if(options_free_view_on && !options_birdview_on) {    // Freeview png if freeview on
-         if(freeview_id == -1) {
-           freeview_id = glGenLists(1);
-           glNewList(freeview_id, GL_COMPILE_AND_EXECUTE);
-           glPushMatrix();
-           glTranslatef(-0.09,-0.94,0.0);
-           glScalef(2.0/win_width,2.0/win_height,1.0);
-           glBindTexture(GL_TEXTURE_2D,freeviewbind); //Freeview control mode png texture
-           myRect2D_texture();
-           glPopMatrix();
-           glEndList();
-         } else {
-           //fprintf(stderr,"Freeview %i\n",freeview_id);
-           glCallList(freeview_id);
-         }
-       }
-       glDisable(GL_TEXTURE_2D);
-       glDisable(GL_BLEND);
-    if(!options_3D_winnertext && g_act_menu==(menuType *)0) {
-       if( (player[0].winner || player[1].winner) && options_gamemode!=options_gamemode_tournament ){
-          glEnable(GL_TEXTURE_2D);
-          glEnable(GL_BLEND);
-          glBlendFunc(GL_ONE,GL_ONE);
-          if( !options_rgstereo_on ){
-              glColor3f(1.0,1.0,0.0);
-          } else {
-              glColor3f(1.0,1.0,1.0);
-          }
-          glPushMatrix();
-          glTranslatef(0,0,-0.5);
-          glScalef(2.0/win_width,2.0/win_height,1.0);
-          glTranslatef( 0, 30,-0.5);
-          textObj_setText( winner_name_text_obj, player[player[0].winner?0:1].name );
-          textObj_draw_centered( winner_name_text_obj );
-          glTranslatef( 0,-60, 0.0);
-          textObj_draw_centered( winner_text_obj );
-          glPopMatrix();
-          glDisable(GL_BLEND);
-#ifdef USE_SOUND
-          if(!playonce) {
-            if(!(player[player[0].winner?0:1].is_AI || player[player[0].winner?0:1].is_net)) {
-            	 PLAY_NOISE(wave_applause,options_snd_volume);
-            } else {
-             	PLAY_NOISE(wave_ooh,options_snd_volume);
+        glDisable(GL_LIGHTING);
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE,GL_ONE);
+        
+        /* strength bar */
+        if(!(options_gamemode==options_gamemode_tournament && tournament_state.wait_for_next_match) && !player[act_player].is_AI && !balls_moving) {
+            /* disable strength bar if tournament window, player is net or ai is active and no balls where moving */
+            myRect2D( -0.5, -0.755, 0.5, -0.675, 0.25, 0.2 );
+            myRect2D( -0.5, -0.745,-0.5+queue_strength, -0.685, 0.0, 0.3 );
+            glPushMatrix();
+            glTranslatef(-0.5,-0.755, 0.0);
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the strength bar begin
+            glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+            glGetIntegerv(GL_VIEWPORT,b_viewport);
+            gluProject(-0.5,-0.755,0.0,b_modelview,b_projection,b_viewport,&x_strengthbar,&y_strengthbar,&z_dummy);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(0.5,-0.675, 0.0);
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the strength bar end
+            glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+            glGetIntegerv(GL_VIEWPORT,b_viewport);
+            gluProject(0.5,-0.675,0.0,b_modelview,b_projection,b_viewport,&x_strengthbar_end,&y_strengthbar_end,&z_dummy);
+            glPopMatrix();
+            //percent on the strength bar
+            sprintf(stbar_text,"%03u%%",(unsigned int)(queue_strength*100));
+            textObj_setText(stbar_text_obj,stbar_text);
+            glEnable(GL_TEXTURE_2D);
+            glPushMatrix();
+            glTranslatef(-0.02,-0.745, 0.0);
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glColor3f(0.8,0.8,0.8);
+            textObj_draw(stbar_text_obj);    //Draw the strength adjustment percent
+            glPopMatrix();
+            //Show the control Buttons on the Screen ?
+            if(options_show_buttons && !player[act_player].is_net) {
+                glPushMatrix();
+                //glColor3f(1.0,1.0,1.0);   // Begin draw the buttons
+                glTranslatef(-0.72,-0.72,0.0);
+                glScalef(2.0/win_width,2.0/win_height,1.0);
+                glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
+                glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+                glGetIntegerv(GL_VIEWPORT,b_viewport);
+                gluProject(-0.72,-0.72,0.0,b_modelview,b_projection,b_viewport,&x_upbutton,&y_upbutton,&z_dummy);
+                //fprintf(stderr,"up button x %f y %f\n",x_upbutton,y_upbutton);
+                glBindTexture(GL_TEXTURE_2D,utexbind); //Up button - zoom+
+                myRect2D_texture();
+                
+                glTranslatef(0.0,-40.0,0.0);
+                glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
+                glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+                glGetIntegerv(GL_VIEWPORT,b_viewport);
+                gluProject(-0.72,-0.82,0.0,b_modelview,b_projection,b_viewport,&x_downbutton,&y_downbutton,&z_dummy);
+                glBindTexture(GL_TEXTURE_2D,dtexbind); //Down button - zoom-
+                myRect2D_texture();
+                
+                glTranslatef(50.0,18,0.0);
+                glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
+                glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+                glGetIntegerv(GL_VIEWPORT,b_viewport);
+                gluProject(-0.62,-0.77,0.0,b_modelview,b_projection,b_viewport,&x_backbutton,&y_backbutton,&z_dummy);
+                glBindTexture(GL_TEXTURE_2D,btexbind); //Back button
+                myRect2D_texture();
+                
+                glPopMatrix();
+                glPushMatrix();
+                glTranslatef(0.515,-0.77,0.0);
+                glScalef(2.0/win_width,2.0/win_height,1.0);
+                glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
+                glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+                glGetIntegerv(GL_VIEWPORT,b_viewport);
+                gluProject(0.515,-0.77,0.0,b_modelview,b_projection,b_viewport,&x_nextbutton,&y_nextbutton,&z_dummy);
+                glBindTexture(GL_TEXTURE_2D,ntexbind);  //Next Button
+                myRect2D_texture();
+                
+                glTranslatef(60.0,0.0,0.0);
+                glGetDoublev(GL_MODELVIEW_MATRIX,b_modelview); //get the whole world OpenGL offset of the buttons
+                glGetDoublev(GL_PROJECTION_MATRIX,b_projection);
+                glGetIntegerv(GL_VIEWPORT,b_viewport);
+                gluProject(0.643,-0.77,0.0,b_modelview,b_projection,b_viewport,&x_shootbutton,&y_shootbutton,&z_dummy);
+                glBindTexture(GL_TEXTURE_2D,stexbind);  //Shoot Button
+                myRect2D_texture();
+                glPopMatrix();
             }
-            playonce++;
-          }
-#endif
-       }
-    }
-    if(helpscreen_on){
-        glColor3f(0.7,0.7,0.7);
-        glEnable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE,GL_ONE);
-        glPushMatrix();
-        draw_help_screen(win_width, win_height);
-        glPopMatrix();
-        glDisable(GL_LIGHTING);
-        glDisable(GL_TEXTURE_2D);
-        glDisable(GL_BLEND);
-    }
-
-    if(options_gamemode==options_gamemode_tournament && tournament_state.wait_for_next_match && tournament_state.overall_winner==-1) {
-        Display_tournament_tree(&tournament_state);
-           /* the following lines only for debugging
-           int i;
-           struct TournamentState_ * ts;
-           ts = &tournament_state;
-           printf("Pairings: \n");
-           for(i=0;i<(1<<(ts->round_num-ts->round_ind-1));i++){
-               printf("%s vs. %s\n",
-                      ts->roster.player[ts->game[ts->round_ind][i].roster_player1].name,
-                      ts->roster.player[ts->game[ts->round_ind][i].roster_player2].name
-                     );
-               printf("%d vs. %d\n",
-                      ts->game[ts->round_ind][i].roster_player1,
-                      ts->game[ts->round_ind][i].roster_player2
-                     );
-           }*/
-       }
-
-    if(!introtexture) {
-        if(next_intro < 0.2 ){  // animation of intro
-          next_intro+=(VMfloat)frametime_ms/120.0;
-        } else {
-          next_intro = 0.0;
-          if((introxanimate+=12) >768) introxanimate = 768;
-          if((introyanimate+=8) >512) introyanimate = 512;
-          if((introblendxanimate-=6) < -384.0) introblendxanimate = -384.0;
-          if((introblendyanimate-=3.22) < -206.0) introblendyanimate = -206.0;
+            glDisable(GL_TEXTURE_2D);
         }
-        glEnable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-        glDisable(GL_LIGHTING);
-        glBlendFunc (GL_ONE, GL_ONE);
-        glPushMatrix();
-        glScalef(2.0/win_width,2.0/win_height,1.0);
-        glTranslatef(introblendxanimate,introblendyanimate,0.0);
-        glBindTexture(GL_TEXTURE_2D,introtexbind);
-        // Introsequenz graphic
-        GLshort VertexData9[] = {0,0,0,0,0,0,0,0,0,0,0,0};
-        VertexData9[4] = introyanimate;
-        VertexData9[9] = introxanimate;
-        VertexData9[10] = introyanimate;
-        VertexData9[6] = introxanimate;
-        static const GLshort TexData9[] = {0,1,0,0,1,1,1,0};
-        static const GLfloat ColorData9[] = {0.9,0.9,0.9,1.0,0.9,0.9,0.9,1.0,0.9,0.9,0.9,1.0,0.9,0.9,0.9,1.0};
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_COLOR_ARRAY);
-        glTexCoordPointer(2,GL_SHORT, 0, TexData9);
-        glVertexPointer(3, GL_SHORT, 0, VertexData9);
-        glColorPointer(4, GL_FLOAT, 0, ColorData9);
-        glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_COLOR_ARRAY);
-        glPopMatrix();
-        glDisable(GL_BLEND);
-        glDisable(GL_TEXTURE_2D);
-    }
-
-    if( g_act_menu != (menuType *)0 ){
-        glColor3f(1.0,1.0,1.0);
-        glEnable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-        glDisable(GL_LIGHTING);
-        glBlendFunc(GL_ONE,GL_ONE);
-        glPushMatrix();
-        glTranslatef(0.0,0.0,-1.0);
-        glScalef(2.0/win_width,2.0/win_height,1.0);
-        menu_draw( g_act_menu );
-        glPopMatrix();
-        glDisable(GL_BLEND);
-    }
-
 #ifdef NETWORKING
-    if( wait_seconds > 0 ) {
-        // draw the countdown
-        sprintf(str,"%01u:%02u",wait_seconds/60,wait_seconds%60);
-        textObj_setText( seconds_text_obj, str );
-        glEnable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-        glDisable(GL_LIGHTING);
-        glPushMatrix();
-        glTranslatef(0.0,0.5,-1.0);
-        glScalef(2.0/win_width,2.0/win_height,1.0);
-        glBlendFunc(GL_ZERO,GL_ONE_MINUS_SRC_COLOR);
-        glColor3f(1.0,1.0,1.0);
-        glTranslatef(2,2,0);
-        textObj_draw_centered(seconds_text_obj);
-        glTranslatef(-4,0,0);
-        textObj_draw_centered(seconds_text_obj);
-        glTranslatef(0,-4,0);
-        textObj_draw_centered(seconds_text_obj);
-        glTranslatef(4,0,0);
-        textObj_draw_centered(seconds_text_obj);
-        glTranslatef(-2,2,0);
-        glBlendFunc(GL_ONE,GL_ONE);
-        textObj_draw_centered(seconds_text_obj);
-        glTranslatef(0.0,-100,0.0);
-        //draw on Host game the listener ip Adresses
-        if(server!=NULL) {
-           textObj_draw_centered( ip1_text_obj);
-           glTranslatef(0.0,-35.0,0.0);
-           textObj_draw_centered( ip2_text_obj);
-           glTranslatef(0.0,-21.0,0.0);
-           for(m=0;m<9;m++) {
-             if(ipptr[m]) {
-               textObj_draw_centered( ip_text_obj[m]);
-               glTranslatef(0.0,-21.0,0.0);
-             }
-           }
+        // show the network game end button if network is active
+        if(active_net_game) {
+            glEnable(GL_TEXTURE_2D);
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glTranslatef((VMfloat)win_width/2-60,(VMfloat)win_height/2-60,0.0);
+            glBindTexture(GL_TEXTURE_2D,networkbind); //network game close button
+            myRect2D_texture();
+            glPopMatrix();
+            glDisable(GL_TEXTURE_2D);
         }
-        glTranslatef(0.0,-14,0.0);
-        textObj_draw_centered(esc_stop_obj);
-        glPopMatrix();
-        glDisable(GL_BLEND);
-    }
 #endif
-
-    if(enddisp_id == -1) {
-      enddisp_id = glGenLists(1);
-      glNewList(enddisp_id, GL_COMPILE_AND_EXECUTE);
-      glEnable(GL_DEPTH_TEST);
-      glEnable(GL_LIGHTING);
-      glEnable(GL_TEXTURE_2D);
-      glPopMatrix();
-      glMatrixMode( GL_PROJECTION );
-      glPopMatrix();
-      glMatrixMode( GL_MODELVIEW );
-      glPopMatrix();
-      glEndList();
-    } else {
-      //fprintf(stderr,"enddisp %i\n",enddisp_id);
-      glCallList(enddisp_id);
-    }
-   } /* rg stereo */
+        // show the helpline
+        if (vline_on && queue_view && !balls_moving ) {
+            if(vline_id == -1) {
+                vline_id = glGenLists(1);
+                glNewList(vline_id, GL_COMPILE_AND_EXECUTE);
+                glPushMatrix();
+                glLineStipple( 1, 0xF0F0 );
+                glEnable(GL_LINE_STIPPLE);
+                static const GLfloat VertexData6[] = {0.0,1.00,0.5,0.0,0.08,0.5};
+                static const GLfloat ColorData6[] = {0.3,0.3,0.3,0.3,0.3,0.3};
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                glVertexPointer(3, GL_FLOAT, 0, VertexData6);
+                glColorPointer(3, GL_FLOAT, 0, ColorData6);
+                glDrawArrays(GL_LINES, 0, 2);
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
+                glDisable(GL_LINE_STIPPLE);
+                glPopMatrix();
+                glEndList();
+            } else {
+                //fprintf(stderr,"vline_id %i\n",vline_id);
+                glCallList(vline_id);
+            }
+        }
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE,GL_ONE);
+        glEnable(GL_TEXTURE_2D);
+        
+        //Special Keys are active ?
+        if(!balls_moving && !player[act_player].is_AI && !player[act_player].is_net) {
+            //place cue ball - Stipple in almost blue over it
+            if (!FREE_VIEW && control__place_cue_ball) {
+                if(cueball_id == -1) {
+                    cueball_id = glGenLists(1);
+                    glNewList(cueball_id, GL_COMPILE_AND_EXECUTE);
+                    glPushMatrix();
+                    glDisable(GL_BLEND);
+                    glDisable(GL_TEXTURE_2D);
+                    glLineWidth(20.0);
+                    glLineStipple( 1, 0x5555 );
+                    glEnable(GL_LINE_STIPPLE);
+                    static const GLfloat VertexData7[] = {0.0,0.20,0.5,0.0,0.08,0.5};
+                    static const GLfloat ColorData7[] = {0.2,0.2,1.0,0.2,0.2,1.0};
+                    glEnableClientState(GL_VERTEX_ARRAY);
+                    glEnableClientState(GL_COLOR_ARRAY);
+                    glVertexPointer(3, GL_FLOAT, 0, VertexData7);
+                    glColorPointer(3, GL_FLOAT, 0, ColorData7);
+                    glDrawArrays(GL_LINES, 0, 2);
+                    glDisableClientState(GL_VERTEX_ARRAY);
+                    glDisableClientState(GL_COLOR_ARRAY);
+                    glLineWidth(1.0);
+                    glDisable(GL_LINE_STIPPLE);
+                    glPopMatrix();
+                    glEnable(GL_TEXTURE_2D);
+                    glEnable(GL_BLEND);
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"place_cue_ball %i\n",cueball_id);
+                    glCallList(cueball_id);
+                }
+            }
+            // english moving (white ball, cross left and special graphic right corner)
+            if(control__english) {
+                if(english_id == -1) {
+                    english_id = glGenLists(1);
+                    glNewList(english_id, GL_COMPILE_AND_EXECUTE);
+                    glPushMatrix();
+                    glTranslatef(-0.95,0.15,0.0);
+                    glScalef(2.0/win_width,2.0/win_height,1.0);
+                    glBindTexture(GL_TEXTURE_2D,englishbind); //English Control if set
+                    static const GLshort VertexData8[] = {0,0,0,0,256,0,256,0,0,256,256,0};
+                    static const GLshort TexData8[] = {0,1,0,0,1,1,1,0};
+                    static const GLfloat ColorData8[] = {0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9};
+                    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glEnableClientState(GL_VERTEX_ARRAY);
+                    glEnableClientState(GL_COLOR_ARRAY);
+                    glTexCoordPointer(2,GL_SHORT, 0, TexData8);
+                    glVertexPointer(3, GL_SHORT, 0, VertexData8);
+                    glColorPointer(3, GL_FLOAT, 0, ColorData8);
+                    glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                    glDisableClientState(GL_VERTEX_ARRAY);
+                    glDisableClientState(GL_COLOR_ARRAY);
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"english move %i\n",english_id);
+                    glCallList(english_id);
+                }
+                //draw the cross on the big white ball if english set is active
+                //then middle position is 106,100,0.0
+                glTranslatef(106.0+(queue_point_x*5300),100.0-(queue_point_y*5300),0.0);
+                glBindTexture(GL_TEXTURE_2D,kreuzbind); //English control cross png texture
+                if(english1_id == -1) {
+                    english1_id = glGenLists(1);
+                    glNewList(english1_id, GL_COMPILE_AND_EXECUTE);
+                    myRect2D_texture();
+                    glPopMatrix();
+                    glPushMatrix();
+                    glTranslatef(0.03,-0.94,0.0);
+                    glScalef(2.0/win_width,2.0/win_height,1.0);
+                    glBindTexture(GL_TEXTURE_2D,ebind); //English control mode png texture
+                    myRect2D_texture();
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"english move %i\n",english1_id);
+                    glCallList(english1_id);
+                }
+            }
+            if(control__mouse_shoot) {
+                if(shoot_id == -1) {
+                    shoot_id = glGenLists(1);
+                    glNewList(shoot_id, GL_COMPILE_AND_EXECUTE);
+                    glPushMatrix();
+                    glTranslatef(0.03,-0.94,0.0);
+                    glScalef(2.0/win_width,2.0/win_height,1.0);
+                    glBindTexture(GL_TEXTURE_2D,sbind); //mouse shoot mode png texture
+                    myRect2D_texture();
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"mouse shoot %i\n",shoot_id);
+                    glCallList(shoot_id);
+                }
+            }
+            if(control__cue_butt_updown) {
+                if(cuebutt_id == -1) {
+                    cuebutt_id = glGenLists(1);
+                    glNewList(cuebutt_id, GL_COMPILE_AND_EXECUTE);
+                    glPushMatrix();
+                    glTranslatef(0.03,-0.94,0.0);
+                    glScalef(2.0/win_width,2.0/win_height,1.0);
+                    glBindTexture(GL_TEXTURE_2D,bbind); //cue up/down control mode png texture
+                    myRect2D_texture();
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"cue butt up/down %i\n",cuebutt_id);
+                    glCallList(cuebutt_id);
+                }
+            }
+            if(control__place_cue_ball) {
+                if(cueball1_id == -1) {
+                    cueball1_id = glGenLists(1);
+                    glNewList(cueball1_id, GL_COMPILE_AND_EXECUTE);
+                    glPushMatrix();
+                    glTranslatef(0.03,-0.94,0.0);
+                    glScalef(2.0/win_width,2.0/win_height,1.0);
+                    glBindTexture(GL_TEXTURE_2D,mbind); //set cue ball control mode png texture
+                    myRect2D_texture();
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"place cue ball %i\n",cueball1_id);
+                    glCallList(cueball1_id);
+                }
+            }
+            if(control__fov) {
+                if(fov_id == -1) {
+                    fov_id = glGenLists(1);
+                    glNewList(fov_id, GL_COMPILE_AND_EXECUTE);
+                    glPushMatrix();
+                    glTranslatef(0.03,-0.94,0.0);
+                    glScalef(2.0/win_width,2.0/win_height,1.0);
+                    glBindTexture(GL_TEXTURE_2D,fbind); //FOV control mode png texture
+                    myRect2D_texture();
+                    glPopMatrix();
+                    glEndList();
+                } else {
+                    //fprintf(stderr,"FOV %i\n",fov_id);
+                    glCallList(fov_id);
+                }
+            }
+        }
+        if(options_free_view_on && !options_birdview_on) {    // Freeview png if freeview on
+            if(freeview_id == -1) {
+                freeview_id = glGenLists(1);
+                glNewList(freeview_id, GL_COMPILE_AND_EXECUTE);
+                glPushMatrix();
+                glTranslatef(-0.09,-0.94,0.0);
+                glScalef(2.0/win_width,2.0/win_height,1.0);
+                glBindTexture(GL_TEXTURE_2D,freeviewbind); //Freeview control mode png texture
+                myRect2D_texture();
+                glPopMatrix();
+                glEndList();
+            } else {
+                //fprintf(stderr,"Freeview %i\n",freeview_id);
+                glCallList(freeview_id);
+            }
+        }
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_BLEND);
+        if(!options_3D_winnertext && g_act_menu==(menuType *)0) {
+            if( (player[0].winner || player[1].winner) && options_gamemode!=options_gamemode_tournament ){
+                glEnable(GL_TEXTURE_2D);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE,GL_ONE);
+                if( !options_rgstereo_on ){
+                    glColor3f(1.0,1.0,0.0);
+                } else {
+                    glColor3f(1.0,1.0,1.0);
+                }
+                glPushMatrix();
+                glTranslatef(0,0,-0.5);
+                glScalef(2.0/win_width,2.0/win_height,1.0);
+                glTranslatef( 0, 30,-0.5);
+                textObj_setText( winner_name_text_obj, player[player[0].winner?0:1].name );
+                textObj_draw_centered( winner_name_text_obj );
+                glTranslatef( 0,-60, 0.0);
+                textObj_draw_centered( winner_text_obj );
+                glPopMatrix();
+                glDisable(GL_BLEND);
+#ifdef USE_SOUND
+                if(!playonce) {
+                    if(!(player[player[0].winner?0:1].is_AI || player[player[0].winner?0:1].is_net)) {
+                        PLAY_NOISE(wave_applause,options_snd_volume);
+                    } else {
+                        PLAY_NOISE(wave_ooh,options_snd_volume);
+                    }
+                    playonce++;
+                }
+#endif
+            }
+        }
+        if(helpscreen_on){
+            glColor3f(0.7,0.7,0.7);
+            glEnable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE,GL_ONE);
+            glPushMatrix();
+            draw_help_screen(win_width, win_height);
+            glPopMatrix();
+            glDisable(GL_LIGHTING);
+            glDisable(GL_TEXTURE_2D);
+            glDisable(GL_BLEND);
+        }
+        
+        if(options_gamemode==options_gamemode_tournament && tournament_state.wait_for_next_match && tournament_state.overall_winner==-1) {
+            Display_tournament_tree(&tournament_state);
+            /* the following lines only for debugging
+             int i;
+             struct TournamentState_ * ts;
+             ts = &tournament_state;
+             printf("Pairings: \n");
+             for(i=0;i<(1<<(ts->round_num-ts->round_ind-1));i++){
+             printf("%s vs. %s\n",
+             ts->roster.player[ts->game[ts->round_ind][i].roster_player1].name,
+             ts->roster.player[ts->game[ts->round_ind][i].roster_player2].name
+             );
+             printf("%d vs. %d\n",
+             ts->game[ts->round_ind][i].roster_player1,
+             ts->game[ts->round_ind][i].roster_player2
+             );
+             }*/
+        }
+        
+        if(!introtexture) {
+            if(next_intro < 0.2 ){  // animation of intro
+                next_intro+=(VMfloat)frametime_ms/120.0;
+            } else {
+                next_intro = 0.0;
+                if((introxanimate+=12) >768) introxanimate = 768;
+                if((introyanimate+=8) >512) introyanimate = 512;
+                if((introblendxanimate-=6) < -384.0) introblendxanimate = -384.0;
+                if((introblendyanimate-=3.22) < -206.0) introblendyanimate = -206.0;
+            }
+            glEnable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            glDisable(GL_LIGHTING);
+            glBlendFunc (GL_ONE, GL_ONE);
+            glPushMatrix();
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glTranslatef(introblendxanimate,introblendyanimate,0.0);
+            glBindTexture(GL_TEXTURE_2D,introtexbind);
+            // Introsequenz graphic
+            GLshort VertexData9[] = {0,0,0,0,0,0,0,0,0,0,0,0};
+            VertexData9[4] = introyanimate;
+            VertexData9[9] = introxanimate;
+            VertexData9[10] = introyanimate;
+            VertexData9[6] = introxanimate;
+            static const GLshort TexData9[] = {0,1,0,0,1,1,1,0};
+            static const GLfloat ColorData9[] = {0.9,0.9,0.9,1.0,0.9,0.9,0.9,1.0,0.9,0.9,0.9,1.0,0.9,0.9,0.9,1.0};
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glEnableClientState(GL_COLOR_ARRAY);
+            glTexCoordPointer(2,GL_SHORT, 0, TexData9);
+            glVertexPointer(3, GL_SHORT, 0, VertexData9);
+            glColorPointer(4, GL_FLOAT, 0, ColorData9);
+            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glDisableClientState(GL_COLOR_ARRAY);
+            glPopMatrix();
+            glDisable(GL_BLEND);
+            glDisable(GL_TEXTURE_2D);
+        }
+        
+        if( g_act_menu != (menuType *)0 ){
+            glColor3f(1.0,1.0,1.0);
+            glEnable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            glDisable(GL_LIGHTING);
+            glBlendFunc(GL_ONE,GL_ONE);
+            glPushMatrix();
+            glTranslatef(0.0,0.0,-1.0);
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            menu_draw( g_act_menu );
+            glPopMatrix();
+            glDisable(GL_BLEND);
+        }
+        
+#ifdef NETWORKING
+        if( wait_seconds > 0 ) {
+            // draw the countdown
+            sprintf(str,"%01u:%02u",wait_seconds/60,wait_seconds%60);
+            textObj_setText( seconds_text_obj, str );
+            glEnable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            glDisable(GL_LIGHTING);
+            glPushMatrix();
+            glTranslatef(0.0,0.5,-1.0);
+            glScalef(2.0/win_width,2.0/win_height,1.0);
+            glBlendFunc(GL_ZERO,GL_ONE_MINUS_SRC_COLOR);
+            glColor3f(1.0,1.0,1.0);
+            glTranslatef(2,2,0);
+            textObj_draw_centered(seconds_text_obj);
+            glTranslatef(-4,0,0);
+            textObj_draw_centered(seconds_text_obj);
+            glTranslatef(0,-4,0);
+            textObj_draw_centered(seconds_text_obj);
+            glTranslatef(4,0,0);
+            textObj_draw_centered(seconds_text_obj);
+            glTranslatef(-2,2,0);
+            glBlendFunc(GL_ONE,GL_ONE);
+            textObj_draw_centered(seconds_text_obj);
+            glTranslatef(0.0,-100,0.0);
+            //draw on Host game the listener ip Adresses
+            if(server!=NULL) {
+                textObj_draw_centered( ip1_text_obj);
+                glTranslatef(0.0,-35.0,0.0);
+                textObj_draw_centered( ip2_text_obj);
+                glTranslatef(0.0,-21.0,0.0);
+                for(m=0;m<9;m++) {
+                    if(ipptr[m]) {
+                        textObj_draw_centered( ip_text_obj[m]);
+                        glTranslatef(0.0,-21.0,0.0);
+                    }
+                }
+            }
+            glTranslatef(0.0,-14,0.0);
+            textObj_draw_centered(esc_stop_obj);
+            glPopMatrix();
+            glDisable(GL_BLEND);
+        }
+#endif
+        
+        if(enddisp_id == -1) {
+            enddisp_id = glGenLists(1);
+            glNewList(enddisp_id, GL_COMPILE_AND_EXECUTE);
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_LIGHTING);
+            glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
+            glMatrixMode( GL_PROJECTION );
+            glPopMatrix();
+            glMatrixMode( GL_MODELVIEW );
+            glPopMatrix();
+            glEndList();
+        } else {
+            //fprintf(stderr,"enddisp %i\n",enddisp_id);
+            glCallList(enddisp_id);
+        }
+    } /* rg stereo */
 }
 
 /***********************************************************************

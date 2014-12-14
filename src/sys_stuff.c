@@ -873,34 +873,30 @@ sysResolution *sys_list_modes( void ) {
     return( sysmodes );
 }
 
-/***********************************************************************
- *                            SDL main loop                            *
- ***********************************************************************/
-
 void sys_main_loop(void) {
-  // we want a good smooth scrolling
-  GLint old_t, t;
-  GLint sleeptime;
-
-  old_t = SDL_GetTicks();
-  while(1) {
-  	 if(options_vsync) {
-       process_events();
-       DisplayFunc();
-       SDL_GL_SwapBuffers();
-    } else {
-       process_events();
-       DisplayFunc();
-       SDL_GL_SwapBuffers();
-       t = SDL_GetTicks();
-       sleeptime = 15-(t-old_t); //wish sleeptime is 15 milliseconds
-       old_t = t;
-       if(sleeptime > 0) {
-         SDL_Delay(sleeptime);
-       }
+    // we want a good smooth scrolling
+    GLint old_t, t;
+    GLint sleeptime;
+    
+    old_t = SDL_GetTicks();
+    while(1) {
+        if(options_vsync) {
+            process_events();
+            DisplayFunc();
+            SDL_GL_SwapBuffers();
+        } else {
+            process_events();
+            DisplayFunc();
+            SDL_GL_SwapBuffers();
+            t = SDL_GetTicks();
+            sleeptime = 15-(t-old_t); //wish sleeptime is 15 milliseconds
+            old_t = t;
+            if(sleeptime > 0) {
+                SDL_Delay(sleeptime);
+            }
+        }
     }
-  }
-
+    
 }
 
 /***********************************************************************
